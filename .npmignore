@@ -1,0 +1,6 @@
+src/
+tests/
+.github/
+examples/
+design-system/
+*.tsbuildinfo

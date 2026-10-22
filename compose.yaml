@@ -1,0 +1,52 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    init: true
+    environment:
+      PUBLIC_ORIGIN: https://${DOMAIN:?Set DOMAIN}
+      BETA_INVITE_CODE: ${BETA_INVITE_CODE:?Set invite code}
+      SESSION_SECRET: ${SESSION_SECRET:?Set session secret}
+    volumes:
+      - beta-data:/data
+    expose:
+      - "4174"
+    mem_limit: 768m
+    cpus: 1.0
+    pids_limit: 128
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+  proxy:
+    image: caddy:2
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+volumes:
+  beta-data:
+  caddy-data:
+  caddy-config:

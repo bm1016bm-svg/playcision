@@ -1,0 +1,15 @@
+node_modules/
+dist/
+coverage/
+.playcision/
+*.log
+.DS_Store
+
+.npm-cache/
+
+.env
+.env.*
+!.env.example
+beta-data/
+backups/
+artifacts/

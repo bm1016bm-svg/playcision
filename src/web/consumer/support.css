@@ -1,0 +1,31 @@
+.consumer-creator-actions{display:flex;align-items:center;flex-wrap:wrap;gap:4px 14px}
+.consumer-support-trigger{display:inline-flex;align-items:center;gap:5px;border:0;background:none;color:#bdc7ce;font:inherit;font-size:12px;line-height:1.5;padding:5px 0;cursor:pointer}
+.consumer-support-trigger svg{width:15px;height:15px}
+.consumer-support-trigger:hover{color:#c4eb85}
+.consumer-support-trigger:focus-visible{outline:2px solid #c4eb85;outline-offset:4px;border-radius:3px}
+.consumer-sheet:has(.support-panel){width:min(100%,560px);background:#101820}
+.consumer-sheet:has(.support-panel)>header{background:#101820}
+.support-panel{padding:12px 0 20px}
+.support-intro{display:flex;gap:14px;align-items:center;margin:8px 0 24px}
+.support-intro>svg{width:42px;height:42px;color:#c4eb85;flex-shrink:0}
+.support-intro p{margin:0;font-size:18px;line-height:1.6}
+.support-tiers{display:grid;gap:12px}
+.support-tier{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px;border:1px solid #ffffff20;border-radius:16px;background:#ffffff03;color:#eef2f4;text-decoration:none;transition:border-color .16s,background .16s}
+a.support-tier:hover{border-color:#c4eb85;background:#c4eb850b}
+.support-tier-copy{display:grid;gap:8px;min-width:0}
+.support-tier-copy strong{font-size:25px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.03em}
+.support-tier-copy>span{font-size:14px;line-height:1.65;overflow-wrap:anywhere}
+.support-tier>svg{width:22px;height:22px;flex-shrink:0;color:#c4eb85}
+.support-tier>small{flex-shrink:0;font-size:11px;color:#a4b1ba}
+.support-payment-note{font-size:12px;line-height:1.6;color:#a4b1ba;margin:16px 0 28px}
+.support-free{border-top:1px solid #ffffff16;padding-top:22px}
+.support-free h3{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:500;margin:0 0 12px}
+.support-free>a{display:flex;align-items:center;gap:12px;padding:14px 0;color:#eef2f4;text-decoration:none}
+.support-free>a:hover{color:#c4eb85}
+.support-free>a>svg{width:22px;height:22px;flex-shrink:0}
+.support-free>a>svg:last-child{margin-left:auto;width:18px}
+.support-free>a>span{display:grid;gap:5px;font-size:14px}
+.support-free small{font-size:12px;color:#a4b1ba}
+.support-panel a:focus-visible{outline:2px solid #c4eb85;outline-offset:4px;border-radius:6px}
+@media(max-width:600px){.consumer-creator-actions{gap:0 10px;max-width:235px}.consumer-creator-actions .consumer-creator{flex-basis:100%}.support-tier{padding:16px}.support-tier-copy strong{font-size:23px}}
+@media(prefers-reduced-motion:reduce){.support-tier{transition:none}}

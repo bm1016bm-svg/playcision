@@ -1,0 +1,108 @@
+/* Phone composition: readable controls and one consistent navigation safe area. */
+@media (max-width: 600px) {
+  .consumer-content { padding: 0 16px calc(92px + env(safe-area-inset-bottom)); }
+  .consumer-topbar { gap: 12px; padding: max(12px, env(safe-area-inset-top)) 0 12px; }
+  .consumer-brand { width: clamp(132px, 39vw, 166px); min-width: 0; }
+  .consumer-topbar-tools { flex-shrink: 0; gap: 8px; }
+  .consumer-language-trigger { width: 44px; padding: 0; justify-content: center; }
+  .consumer-language-trigger span { display: none; }
+  .consumer-list-view { margin-top: 8px; min-width: 0; }
+  .consumer-list-view > header h1 { font-size: 26px; line-height: 1.3; }
+  .consumer-app .consumer-bottom-nav {
+    position: fixed; left: 50%; bottom: 0; transform: translateX(-50%);
+    width: 100%; max-width: 600px; margin: 0;
+    padding: 6px 12px max(8px, env(safe-area-inset-bottom));
+    border: 0; border-top: 1px solid #ffffff12; border-radius: 0;
+    background: #0d151df5; backdrop-filter: blur(18px); box-shadow: none;
+  }
+  .consumer-bottom-nav button { min-height: 52px; gap: 3px; }
+  .consumer-bottom-nav em { font-size: 12px; }
+  .consumer-app--recommended .consumer-recommended-view { padding-bottom: 0; }
+  .consumer-toast { bottom: calc(80px + env(safe-area-inset-bottom)); white-space: normal; width: max-content; }
+
+  .consumer-deck-progress { margin-bottom: 12px; }
+  .consumer-deck-progress .consumer-deck-caption { margin-bottom: 10px; }
+  .consumer-deck-caption > span:first-child { font-size: 11px; letter-spacing: .06em; }
+  .consumer-card-stage .consumer-game-info { padding: 12px 16px 14px; gap: 6px; }
+  .consumer-card-stage .consumer-title-block { height: 76px; }
+  .consumer-card-stage .consumer-title-block h2 { font-size: 22px; line-height: 1.2; max-height: 2.4em; }
+  .consumer-title-block .consumer-game-credits { font-size: 11px; margin-top: 4px; }
+  .consumer-commerce { height: 76px; min-height: 76px; flex-direction: column; align-items: stretch; justify-content: center; gap: 6px; flex-wrap: nowrap; }
+  .consumer-commerce .consumer-price-row { width: 100%; min-height: 28px; }
+  .consumer-commerce .consumer-price-row strong { font-size: 20px; line-height: 26px; }
+  .consumer-review-stats { font-size: 11px; line-height: 18px; row-gap: 0; }
+  .consumer-card-stage .consumer-tags { height: 28px; gap: 6px; }
+  .consumer-summary-slot { height: 4.95em; font-size: 13px; line-height: 1.65; }
+  .consumer-summary-slot .consumer-synopsis { font-size: inherit; line-height: inherit; }
+  .consumer-actions { grid-template-columns: 44px minmax(0, 1fr) minmax(0, 1fr); gap: 8px; margin: 24px auto 0; }
+  .consumer-actions > button { min-height: 48px; gap: 6px; font-size: 14px; border-radius: 13px; }
+  .consumer-actions svg { width: 20px; height: 20px; }
+
+  .consumer-shelf-rail { grid-auto-columns: 78%; gap: 12px; }
+  .consumer-shelf-game h3 { font-size: 14px; }
+  .consumer-shelf-game footer strong { font-size: 13px; }
+  .consumer-saved-picker { margin-top: 20px; }
+  .consumer-saved-list { margin-top: 16px; }
+  .consumer-saved-list > button { grid-template-columns: 88px minmax(0, 1fr) 24px; gap: 12px; padding: 16px 0; }
+  .consumer-saved-list > button:last-child { border-bottom: 0; }
+  .consumer-saved-total { margin-top: 0; padding-top: 18px; }
+  .consumer-share-heading { gap: 16px; justify-content: space-between; flex-wrap: nowrap; }
+  .consumer-share-heading .consumer-room-switch { font-size: 12px; white-space: nowrap; }
+  .consumer-share-platforms { margin: 16px 0 20px; gap: 4px 12px; }
+  .consumer-share-platforms button { min-height: 76px; padding: 10px 0 14px; gap: 7px; }
+  .consumer-share-platforms svg { width: 27px; height: 27px; }
+  .consumer-share-selection-heading { gap: 8px; }
+  .consumer-share-selection-heading h2 { font-size: 14px; }
+  .consumer-share-selection-heading h2 span { display: inline-block; font-size: 12px; }
+  .consumer-share-games { margin-bottom: 16px; }
+  .consumer-share-games .consumer-share-art { width: 76px; flex-basis: 76px; }
+  .consumer-share-games .consumer-share-game-row label { gap: 10px; }
+  .consumer-share-game-row { padding: 12px 0; }
+
+  .consumer-filter-sheet > header { padding: max(12px, env(safe-area-inset-top)) 16px 12px; }
+  .consumer-filter-sheet .consumer-filter-content { padding: 20px 16px; }
+  .consumer-genre-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  .consumer-genre-group:has(.consumer-group-trigger[aria-expanded="true"]) { grid-column: 1 / -1; }
+  .consumer-group-trigger { min-height: 54px; padding: 12px; font-size: 13px; gap: 6px; }
+  .consumer-group-trigger > span:last-child { gap: 4px; flex-shrink: 0; }
+  .consumer-genre-search { margin-bottom: 14px; }
+  .consumer-filter-sheet .consumer-genre-field { padding-bottom: 24px; margin-bottom: 24px; }
+  .consumer-filter-sheet .consumer-filter-actions { padding: 12px 16px max(12px, env(safe-area-inset-bottom)); grid-template-columns: minmax(72px, 1fr) minmax(0, 2fr); }
+  .consumer-language-options button { padding: 12px; font-size: 13px; }
+  .consumer-reviews-sheet > header { padding-inline: 16px; }
+  .consumer-review-tabs { gap: 16px; padding-bottom: 16px; }
+  .consumer-testimonials { height: min(390px, 53dvh); }
+  .consumer-testimonial { width: min(290px, calc(100vw - 64px)); left: max(32px, calc(50% - 145px)); height: min(344px, 47dvh); padding: 20px; }
+
+  #share-room-panel .play-room { margin: 16px 0 0; padding-bottom: 0; }
+  .room-heading h2 { font-size: 20px; }
+  .room-toolbar { margin-top: 10px; padding: 4px 0; min-height: 44px; }
+  .room-arena { grid-template-columns: 42px minmax(0, 1fr) 42px; gap: 12px 6px; margin-top: 12px; }
+  .room-arena .room-seat { gap: 4px; }
+  .room-arena .room-seat--0, .room-arena .room-seat--2 { flex-direction: row; justify-content: center; gap: 10px; text-align: left; }
+  .room-seat-avatar { height: 32px; width: 32px; border-radius: 10px; flex-shrink: 0; }
+  .room-arena .room-seat strong { font-size: 11px; max-width: 80px; }
+  .room-arena .room-seat small { font-size: 10px; line-height: 1.4; margin-top: 2px; }
+  .room-arena .room-seat--1 small, .room-arena .room-seat--3 small { max-width: 42px; }
+  .room-arena .room-table { border-radius: 20px; padding: 4px; }
+  .room-felt { min-height: 168px; max-height: 320px; padding: 10px; border-radius: 16px; }
+  .room-stage-mark { width: 48px; height: 48px; border-radius: 16px; }
+  .room-stage-mark svg { width: 28px; height: 28px; }
+  .room-table-empty p { margin-top: 12px; font-size: 12px; }
+  .room-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 18px; }
+  .room-controls > .room-text-button { grid-column: 1 / -1; justify-self: center; }
+  .play-room button { font-size: 13px; padding: 10px 12px; border-radius: 10px; }
+  .play-room input { min-height: 48px; font-size: 16px; border-radius: 10px; }
+  .room-hand { margin-top: 16px; }
+  .room-felt .room-game h3 { font-size: 13px; }
+  .room-felt .room-game p { font-size: 11px; }
+  .room-felt .room-vote { min-height: 44px; font-size: 12px; }
+}
+
+@media (max-width: 600px) and (max-height: 720px) {
+  #share-room-panel .play-room { margin-top: 10px; }
+  .room-toolbar { margin-top: 4px; }
+  .room-arena { margin-top: 8px; row-gap: 8px; }
+  .room-felt { min-height: 140px; max-height: 280px; }
+  .room-controls { margin-top: 12px; gap: 4px; }
+}

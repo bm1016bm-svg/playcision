@@ -1,0 +1,58 @@
+{
+  "response": {
+    "store_items": [
+      {
+        "item_type": 0,
+        "id": 201,
+        "appid": 201,
+        "success": 1,
+        "visible": true,
+        "name": "Wishlist RPG — enriched",
+        "tagids": [122],
+        "basic_info": {
+          "developers": [{ "name": "Local Dev" }],
+          "publishers": [{ "name": "Local Pub" }]
+        },
+        "release": { "steam_release_date": 1786320000 },
+        "platforms": { "windows": true, "steamos_linux": true },
+        "assets": {
+          "asset_url_format": "steam/apps/201/${FILENAME}?t=1",
+          "header": "header.jpg"
+        },
+        "purchase_options": [
+          {
+            "purchase_option_name": "Wishlist RPG — enriched",
+            "final_price_in_cents": "5000",
+            "original_price_in_cents": "10000",
+            "formatted_final_price": "NT$ 50.00",
+            "formatted_original_price": "NT$ 100.00",
+            "discount_pct": 50,
+            "included_game_count": 1,
+            "must_purchase_as_set": false
+          }
+        ]
+      },
+      {
+        "item_type": 0,
+        "id": 301,
+        "appid": 301,
+        "success": 1,
+        "visible": true,
+        "name": "Tracked Full Price",
+        "tagids": [19],
+        "basic_info": { "developers": [], "publishers": [] },
+        "platforms": { "mac": true },
+        "purchase_options": [
+          {
+            "purchase_option_name": "Tracked Full Price",
+            "final_price_in_cents": "30000",
+            "formatted_final_price": "NT$ 300.00",
+            "discount_pct": 0,
+            "included_game_count": 1,
+            "must_purchase_as_set": false
+          }
+        ]
+      }
+    ]
+  }
+}

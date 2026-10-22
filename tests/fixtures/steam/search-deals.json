@@ -1,0 +1,5 @@
+{
+  "success": 1,
+  "total_count": 2,
+  "results_html": "<a class=\"search_result_row\" data-ds-appid=\"201\" data-ds-tagids=\"[122]\"><div class=\"search_name\"><span class=\"title\">Wishlist RPG</span></div><div class=\"search_price_discount_combined\" data-price-final=\"5000\" data-price-original=\"10000\"><div class=\"discount_pct\">-50%</div><div class=\"discount_original_price\">NT$ 100.00</div><div class=\"discount_final_price\">NT$ 50.00</div></div></a><a class=\"search_result_row\" data-ds-appid=\"202\" data-ds-tagids=\"[19]\"><div class=\"search_name\"><span class=\"title\">Public Special</span></div><div class=\"search_price_discount_combined\" data-price-final=\"7500\" data-price-original=\"15000\"><div class=\"discount_pct\">-50%</div><div class=\"discount_final_price\">NT$ 75.00</div></div></a>"
+}

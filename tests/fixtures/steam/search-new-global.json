@@ -1,0 +1,5 @@
+{
+  "success": 1,
+  "total_count": 2,
+  "results_html": "<a class=\"search_result_row\" data-ds-appid=\"101\" data-ds-tagids=\"[1716,19]\"><div class=\"search_capsule\"><img src=\"https://cdn.example/101.jpg\"></div><div class=\"search_name\"><span class=\"title\">Dice Night</span><div class=\"search_released\">2026 年 8 月 10 日</div><span class=\"platform_img win\"></span></div><div class=\"search_price_discount_combined\" data-price-final=\"29900\"><div class=\"discount_final_price\">NT$ 299.00</div></div></a><a class=\"search_result_row\" data-ds-appid=\"102\" data-ds-tagids=\"[493,19]\"><div class=\"search_name\"><span class=\"title\">Fresh Access</span><div class=\"search_released\">9 Aug, 2026</div><span class=\"platform_img win\"></span><span class=\"platform_img linux\"></span></div><div class=\"search_price_discount_combined\" data-price-final=\"0\">Free To Play</div></a>"
+}

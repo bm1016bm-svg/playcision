@@ -1,0 +1,13 @@
+node_modules
+dist
+.git
+.playcision
+beta-data
+.env
+.env.*
+artifacts
+coverage
+*.log
+backups
+.codex
+.agents

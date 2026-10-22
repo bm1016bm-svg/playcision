@@ -1,0 +1,73 @@
+# Playcision schema v1 — Taiwan, Traditional Chinese, daily Slack digest.
+version: 1
+
+locale:
+  country: TW
+  currency: TWD
+  language: tchinese
+
+providers:
+  steam:
+    enabled: true
+    maxPages: 2
+    requestDelayMs: 350
+    timeoutMs: 15000
+
+interests:
+  tags:
+    - Roguelike
+    - Sexual Content
+  genres: []
+  developers: []
+  includeAppIds: []
+  excludeAppIds: []
+
+discover:
+  days: 7
+  limit: 20
+  includeEarlyAccess: true
+  includeMature: true
+
+deals:
+  limit: 20
+  maxPrice: 300
+  minDiscountPercent: 20
+  localObservedLowOnly: false
+  notifyPriceChanges: true
+  # Explicit App IDs work without an account/profile lookup.
+  wishlistAppIds:
+    - "1091500"
+    - "413150"
+  # Optional public SteamID64. null performs no account/profile request.
+  wishlistSteamId: null
+
+roll:
+  limit: 100
+  maxPrice: null
+  tags:
+    - Roguelike
+  mode: weighted
+  weights:
+    discounted: 1.15
+    interestMatch: 1.3
+    neverNotified: 1.1
+
+outputs:
+  markdown:
+    enabled: true
+    path: .playcision/outputs/digest.md
+  json:
+    enabled: false
+    path: .playcision/outputs/digest.json
+  slack:
+    enabled: true
+    webhookEnv: SLACK_WEBHOOK_URL
+
+state:
+  enabled: true
+  retentionDays: 90
+
+schedule:
+  type: github
+  cron: "0 9 * * *"
+  timezone: Asia/Taipei

@@ -1,0 +1,27 @@
+{
+  "999": {
+    "success": true,
+    "data": {
+      "type": "game",
+      "name": "Fallback Game",
+      "steam_appid": 999,
+      "required_age": "18",
+      "is_free": false,
+      "developers": ["Fallback Dev"],
+      "publishers": ["Fallback Pub"],
+      "header_image": "https://cdn.example/999.jpg",
+      "release_date": { "coming_soon": false, "date": "1 Jan, 2025" },
+      "genres": [{ "id": "3", "description": "RPG" }],
+      "platforms": { "windows": true, "mac": false, "linux": false },
+      "price_overview": {
+        "currency": "TWD",
+        "initial": 30000,
+        "final": 21000,
+        "discount_percent": 30,
+        "initial_formatted": "NT$ 300.00",
+        "final_formatted": "NT$ 210.00"
+      },
+      "content_descriptors": { "ids": [1], "notes": null }
+    }
+  }
+}

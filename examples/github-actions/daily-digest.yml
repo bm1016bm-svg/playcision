@@ -1,0 +1,56 @@
+name: Playcision daily digest
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 09:07 Asia/Taipei avoids the busiest start-of-hour window.
+    - cron: "7 9 * * *"
+      timezone: "Asia/Taipei"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: playcision-digest
+  cancel-in-progress: false
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out source and local configuration
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install and build
+        run: |
+          npm ci
+          npm run build
+
+      - name: Restore best-effort Playcision state
+        id: state-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: .playcision/state.json
+          key: playcision-state-${{ github.run_id }}
+          restore-keys: |
+            playcision-state-
+
+      - name: Build and deliver digest
+        run: node dist/cli.js digest --notify
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Save best-effort Playcision state
+        if: ${{ success() }}
+        uses: actions/cache/save@v5
+        with:
+          path: .playcision/state.json
+          key: playcision-state-${{ github.run_id }}
