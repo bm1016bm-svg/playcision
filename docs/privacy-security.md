@@ -21,6 +21,7 @@ V1 network behavior is limited to configured functionality:
 - Slack's webhook host when Slack output is enabled;
 - the same-origin room backend when multiplayer is used (or an operator-configured `VITE_ROOM_API` backend);
 - GitHub only when the player follows the creator credit link;
+- PAYUNi hosted checkout only when collection is released and the player clicks a support amount;
 - GitHub Actions infrastructure only when the user places and runs a workflow in a repository.
 
 An installer agent may use package registries or source hosting, but that is installation behavior rather than the Playcision runtime data path. Review lockfile and dependency changes before installation.
@@ -76,7 +77,7 @@ Slack Block Kit currently permits up to 50 blocks per message, and section text 
 
 ## Optional creator support
 
-The coffee-support UI opens an allowlisted ECPay hosted checkout URL only after a user clicks a configured amount. Playcision does not collect card details, create payment orders, store donor records, or claim a successful payment from a click or return navigation. ECPay handles its own checkout data and payment records. GitHub support links similarly open only on user action. These outbound links use `noopener noreferrer`. Public `VITE_ECPAY_*_URL` settings are embedded in the client build and must never contain credentials. Missing or invalid links disable the corresponding option. No advertising analytics or new tracking are enabled by this support feature.
+The coffee-support UI opens an allowlisted PAYUNi reusable hosted checkout only after collection is explicitly released and a user clicks a configured amount. Validation pins the production host, observed checkout path and Playcision merchant identifier. Playcision does not collect card details, create payment orders, store donor records, or claim a successful payment from a click or return navigation. PAYUNi handles its own checkout data and payment records. GitHub support links similarly open only on user action. These outbound links use `noopener noreferrer`. Public `VITE_PAYUNI_*_URL` settings and the `VITE_PAYUNI_COLLECTION_ENABLED` release switch are embedded in the client build and must never contain credentials. The switch defaults to disabled; setting it is an operator release decision, not proof of approval. Invalid links disable their corresponding option; duplicate links disable all tiers. No advertising analytics, payment polling or new tracking are enabled. Merchant and all three payment pages were still pending PAYUNi review on 2026-10-29; see [collection status and release checks](support-and-indie-pilot.md).
 
 ## External text handling
 
