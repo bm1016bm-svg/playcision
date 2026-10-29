@@ -64,6 +64,13 @@ it('opens the application and catalog without invitation secrets or session cook
   expect((await worker.fetch(new Request(origin + '/beta/login', { method: 'POST', headers: { Origin: origin }, body: '' }), a.env)).status).toBe(405);
   expect(a.env.ROOMS.get).not.toHaveBeenCalled();
 });
+it('reports bounded Steam failure codes without exposing upstream bodies or credentials', async () => {
+  const a = await app();
+  a.fetcher.mockResolvedValue(new Response('private upstream response Cookie=do-not-expose', { status: 403 }));
+  const response = await a.call('/api/discovery?source=popular&genre=all&platform=all&price=all&players=all&earlyAccess=all&offset=0');
+  expect(response.status).toBe(503);
+  expect(await response.json()).toEqual({ error: '資料暫時無法取得，請稍後重試', code: 'STEAM_HTTP_ERROR', upstreamStatus: 403 });
+});
 it('preserves room links through direct navigation, without opening cross-site APIs', async () => {
   const a = await app(); const room = 'cccccccc-0000-4000-8000-000000000000';
   const metadata = { 'Sec-Fetch-Site': 'cross-site', 'Sec-Fetch-Mode': 'navigate', 'Sec-Fetch-Dest': 'document' };

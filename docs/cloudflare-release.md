@@ -2,6 +2,12 @@
 
 網站、Steam API、十分鐘房間共用同一個 Worker 網址。使用 Workers 靜態資產及 **SQLite Durable Objects**，不需要租主機、Docker、KV、D1 或信用卡收款服務。網頁直接開放，不需帳號、邀請碼或登入 Cookie；正式公開前仍須完成實際 Cloudflare 帳號上的 HTTPS 與跨網路測試。
 
+## 目前公開部署
+
+2026-10-29 已部署至 [Playcision 正式網站](https://playcision.bm1016bm-cf7.workers.dev/)，帳號的 Workers 方案確認為免費。已驗證正式 HTTPS、靜態資產及安全標頭、八個 Steam 資料端點，以及同一台電腦透過正式 HTTPS／WSS 進行的兩人出牌、投票、隱藏他人票數和 alarm 自動推送結果。測試房沿既有十分鐘期限清理，沒有增加管理刪除入口。
+
+初次驗收曾遇到 Steam 資料暫時無法取得，重試後端點驗證通過；上游可用性仍可能變動。瀏覽器尺寸模擬不等同實體手機測試，同機兩個連線也不等同不同網路裝置驗收；未進行正式站壓測，沒有可承諾的同時在線人數。PAYUNi 收款尚未啟用。
+
 ## 本機驗證
 
 ```powershell
@@ -65,3 +71,5 @@ npm run cloud:smoke -- --steam
 更新前記下 `npx wrangler deployments list` 的版本。問題版本用 `npx wrangler rollback <version-id>` 回退；勿回滾不相容的 DO migration。需要暫停公開存取時，在 Cloudflare 關閉公開入口或部署維護回應。回滾後重跑外網驗收；網頁不再使用登入 Cookie 或邀請碼。
 
 收款未在此路線啟用，留待下一輪。
+
+正式站的 Steam 失敗回應保留簡短文案，另外提供固定 `code` 與上游 HTTP `upstreamStatus` 供診斷；不回傳原始內容、Cookie、授權標頭、完整 URL 或堆疊。

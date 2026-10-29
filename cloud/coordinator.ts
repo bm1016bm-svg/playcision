@@ -1,6 +1,7 @@
 import { createCloudCatalog } from './catalog.js';
 import { type CloudEnv, type CloudState, HttpError, UUID, reply } from './common.js';
 import { newRoom } from '../src/rooms/engine.js';
+import { SteamProviderError } from '../src/provider/errors.js';
 
 type Kind = 'api' | 'write' | 'create' | 'socket' | 'upstream';
 interface Ledger { day: number; minute: number; daily: Record<Kind, number>; recent: Record<Kind, number>; rooms: Record<string, number> }
@@ -113,7 +114,8 @@ export class AppCoordinator {
       return reply(200, await this.catalog(url));
     } catch (error) {
       return reply(error instanceof HttpError ? error.status : error instanceof SyntaxError || (error instanceof Error && error.name === 'ZodError') ? 400 : 503,
-        { error: error instanceof HttpError ? error.message : '資料暫時無法取得，請稍後重試' });
+        { error: error instanceof HttpError ? error.message : '資料暫時無法取得，請稍後重試',
+          ...(error instanceof SteamProviderError ? { code: error.code, upstreamStatus: error.status } : {}) });
     }
   }
 }
