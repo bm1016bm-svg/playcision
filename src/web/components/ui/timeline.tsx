@@ -1,13 +1,15 @@
 "use client";
 
 // Scroll-driven journey adapted from the supplied Hyperiux Vault timeline.
-import { useId, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { createRecommendationRoute, routeResumePosition, routeWindow, sampleRoute, ROUTE_SCROLL_STEP } from './recommendation-route';
 import './timeline.css';
 import { createLatestPreloader } from './latest-preloader';
-import { useScrollConnector } from './scroll-connector';
+import { CircuitConnector } from './circuit-connector';
+import { CircuitStroke } from './circuit-stroke';
+import { circuitPath } from './circuit-path';
 
 if (typeof window !== 'undefined') gsap.registerPlugin(ScrollTrigger);
 export type TimelineItem = { id: string; label: string; content: ReactNode; prepare?: () => Promise<unknown> };
@@ -28,8 +30,6 @@ export default function Timeline({ items, label, onNearEnd, connectFromAbove = f
   const circuit = useRef<SVGGElement>(null);
   const spectrum = useRef<SVGLinearGradientElement>(null);
   const entryLine = useRef<HTMLSpanElement>(null);
-  useScrollConnector(entryLine, connectFromAbove);
-  const glowId = `journey-gloss-${useId().replace(/:/g, "")}`;
   const scrollTrigger = useRef<ScrollTrigger | null>(null);
   const resumePosition = useRef(0);
   const [active, setActive] = useState(0);
@@ -101,9 +101,7 @@ export default function Timeline({ items, label, onNearEnd, connectFromAbove = f
           if (spectrum.current) {
             for (const [key, value] of Object.entries({ x1: a.x, y1: a.y, x2: b.x, y2: b.y })) spectrum.current.setAttribute(key, String(value));
           }
-          const dx = b.x - a.x, dy = b.y - a.y;
-          const nx = dy ? 9 : 0, ny = dx ? 9 : 0;
-          const d = `M ${a.x} ${a.y} L ${a.x + dx * .44} ${a.y + dy * .44} l ${nx} ${ny} L ${a.x + dx * .56 + nx} ${a.y + dy * .56 + ny} l ${-nx} ${-ny} L ${b.x} ${b.y}`;
+          const d = circuitPath(a, b);
           circuit.current.querySelectorAll('path').forEach(path => path.setAttribute('d', d));
         }
         const fraction = cursor.position - camera.index;
@@ -165,27 +163,11 @@ export default function Timeline({ items, label, onNearEnd, connectFromAbove = f
       if (!animated || event.target !== event.currentTarget || !['ArrowDown', 'ArrowUp'].includes(event.key)) return;
       event.preventDefault(); jump(Math.max(0, Math.min(items.length - 1, activeRef.current + (event.key === 'ArrowDown' ? 1 : -1))));
     }}>
-      {connectFromAbove && <span ref={entryLine} className="game-timeline-entry scroll-connector" aria-hidden="true" />}
+      {connectFromAbove && <CircuitConnector anchorRef={entryLine} className="game-timeline-entry" />}
       <div ref={scene} className="game-timeline-scene">
         {animated && <svg className="game-journey-line" aria-hidden="true" style={{ left: bounds.x, top: bounds.y, width: bounds.right - bounds.x, height: bounds.bottom - bounds.y }} viewBox={`${bounds.x} ${bounds.y} ${bounds.right - bounds.x} ${bounds.bottom - bounds.y}`}>
-          <defs><linearGradient ref={spectrum} id={glowId} gradientUnits="userSpaceOnUse">
-            <stop offset="0" stopColor="#5756bc" stopOpacity=".35" />
-            <stop offset=".22" stopColor="#8970ed" />
-            <stop offset=".4" stopColor="#d897ff" />
-            <stop offset=".51" stopColor="#f2d8ff" />
-            <stop offset=".63" stopColor="#8975eb" />
-            <stop offset=".84" stopColor="#62bee5" />
-            <stop offset="1" stopColor="#4060b1" stopOpacity=".25" />
-          </linearGradient></defs>
           <polyline points={route.map(p => `${p.x},${p.y}`).join(' ')} />
-          <g ref={circuit} className="game-circuit">
-            <path className="game-circuit-halo" stroke={`url(#${glowId})`} pathLength="1" />
-            <path className="game-circuit-glow" stroke={`url(#${glowId})`} pathLength="1" />
-            <path className="game-circuit-ribbon" stroke={`url(#${glowId})`} pathLength="1" />
-            <path className="game-circuit-core" stroke={`url(#${glowId})`} pathLength="1" />
-            <path className="game-circuit-pulse game-circuit-pulse-halo" pathLength="1" />
-            <path className="game-circuit-pulse" pathLength="1" />
-          </g>
+          <CircuitStroke from={points[active] ?? { x: 0, y: 0 }} to={points[active + 1] ?? points[active] ?? { x: 0, y: 0 }} groupRef={circuit} gradientRef={spectrum} />
         </svg>}
         {visible.map((item, offset) => {
           const index = animated ? windowRange.start + offset : offset;

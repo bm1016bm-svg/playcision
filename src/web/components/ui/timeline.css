@@ -1,5 +1,5 @@
 .game-timeline{position:relative;width:100%;min-width:0}
-.game-timeline-entry{position:absolute;left:calc(50% - 1px);top:0;width:2px;height:26px;background:linear-gradient(#a99afa,#bfafff);box-shadow:0 0 8px #a99afa88,0 0 24px #9390ef44;pointer-events:none}
+.game-timeline-entry{position:absolute;left:calc(50% - 48px);top:0;width:96px;height:26px;pointer-events:none}
 .is-journey .game-timeline-entry{height:50%}
 .is-static .game-timeline-viewport{position:relative}
 .is-static .game-timeline-scene{position:relative}
@@ -37,14 +37,4 @@
 .is-journey .consumer-shelf-art{aspect-ratio:16/9;height:auto;max-height:none}
 
 
-/* Layered violet / ice-blue gloss; only the next route segment is lit. */
 .game-journey-line polyline{stroke:#777ca02e}
-.game-circuit path{fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:var(--circuit-reveal,.32) 1}
-.game-circuit-halo{stroke-width:18;opacity:.22;filter:blur(9px)}
-.game-circuit-glow{stroke-width:8;opacity:.48;filter:blur(3.5px)}
-.game-circuit-ribbon{stroke-width:3;opacity:.72;filter:blur(.65px)}
-.game-circuit-core{stroke-width:1;opacity:.95}
-.game-circuit .game-circuit-pulse{stroke:#fff0ff;stroke-width:1.3;opacity:.85;stroke-dasharray:.028 .972;animation:circuit-travel 5s linear infinite}
-.game-circuit .game-circuit-pulse-halo{stroke:#d4a4ff;stroke-width:7;opacity:.5;filter:blur(3px)}
-@keyframes circuit-travel{from{stroke-dashoffset:0}to{stroke-dashoffset:-1}}
-@media(prefers-reduced-motion:reduce){.game-circuit-pulse{animation:none!important}}

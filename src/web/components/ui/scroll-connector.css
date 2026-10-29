@@ -1,1 +1,2 @@
 .scroll-connector{opacity:var(--connector-visible,0);pointer-events:none;mask-image:linear-gradient(to bottom,transparent var(--connector-tail,0px),#000 var(--connector-body,0px),#000 calc(var(--connector-tip,0px) - 3px),transparent var(--connector-tip,0px))}
+.circuit-connector-svg{display:block;width:100%;height:100%;overflow:visible}

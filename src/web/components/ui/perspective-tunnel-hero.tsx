@@ -5,7 +5,7 @@
 import { motion, useMotionValue, useReducedMotion, useSpring, useTransform, type MotionValue } from 'motion/react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { tunnelFrame } from './tunnel-path';
-import { useScrollConnector } from './scroll-connector';
+import { CircuitConnector } from './circuit-connector';
 import './perspective-tunnel-hero.css';
 
 export interface TunnelItem { id: string; title: string; src?: string | undefined; artwork?: ReactNode }
@@ -34,7 +34,6 @@ function TunnelCard({ item, index, total, progress, pointer, stage }: {
 export default function PerspectiveTunnelHero({ items, onContinue }: { items: TunnelItem[]; onContinue: () => void }) {
   const host = useRef<HTMLElement>(null);
   const viewport = useRef<HTMLDivElement>(null);
-  const guide = useRef<HTMLDivElement>(null);
   const reduced = useReducedMotion();
   const [stage, setStage] = useState<Stage>({ width: 1000, height: 680 });
   const raw = useMotionValue(0);
@@ -45,7 +44,6 @@ export default function PerspectiveTunnelHero({ items, onContinue }: { items: Tu
   const titleScale = useTransform(progress, [0, .4], [1, 1.14]);
   const titleOpacity = useTransform(progress, [0, .08, .36], [1, 1, 0]);
   const promptOpacity = useTransform(progress, [0, .16], [1, 0]);
-  useScrollConnector(guide, !reduced);
 
   useEffect(() => {
     const element = host.current, view = viewport.current;
@@ -95,6 +93,6 @@ export default function PerspectiveTunnelHero({ items, onContinue }: { items: Tu
       </motion.div>
       <button type="button" className="discovery-tunnel-skip" onClick={onContinue}>{reduced ? '查看推薦' : '跳過動畫'} <span aria-hidden="true">↘</span></button>
     </div>
-    {!reduced && <div ref={guide} className="discovery-tunnel-progress scroll-connector" aria-hidden="true" />}
+    {!reduced && <CircuitConnector className="discovery-tunnel-progress" />}
   </section>;
 }
