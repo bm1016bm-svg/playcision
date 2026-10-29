@@ -20,14 +20,14 @@
 .discovery-tunnel-prompt>span::after{content:"";position:absolute;bottom:0;left:50%;width:8px;height:8px;border-right:1.5px solid #c6ec98;border-bottom:1.5px solid #c6ec98;transform:translateX(-50%) rotate(45deg)}
 .consumer-stage .discovery-tunnel-skip{position:absolute;top:max(20px,env(safe-area-inset-top));right:max(24px,env(safe-area-inset-right));z-index:4;display:flex;align-items:center;gap:12px;min-height:44px;padding:8px 12px;border:0;background:transparent;color:#c4ccd5;font-size:12px}
 .consumer-stage .discovery-tunnel-skip:hover{background:#ffffff15;color:#fff}
-.discovery-tunnel-progress{position:absolute;z-index:1;left:calc(50% - 1px);top:55%;bottom:0;width:2px;transform-origin:top;background:linear-gradient(180deg,#b8e879,#a19af5);box-shadow:0 0 8px #b8e87988,0 0 24px #9390ef55;pointer-events:none}
+.discovery-tunnel-progress{position:absolute;z-index:1;left:calc(50% - 1px);top:calc(100% - 45svh);bottom:0;width:2px;background:linear-gradient(180deg,#b8e879,#a19af5);box-shadow:0 0 8px #b8e87988,0 0 24px #9390ef55}
 .discovery-tunnel.is-reduced{height:auto}
 .discovery-tunnel.is-reduced .discovery-tunnel-stage{position:relative;top:0}
 .recommendation-feed{scroll-margin-top:20px}
 .recommendation-feed-heading{position:relative;display:flow-root;isolation:isolate}
 .recommendation-feed-heading>header{margin-bottom:20px}
 .recommendation-feed-heading>header h2{font-size:28px;font-weight:550}
-.recommendation-feed-heading.is-connected::before{content:"";position:absolute;z-index:-1;left:calc(50% - 1px);top:0;bottom:0;width:2px;background:linear-gradient(#a19af5,#a99afa);box-shadow:0 0 8px #a19af588,0 0 24px #9390ef44;pointer-events:none}
+.recommendation-feed-line{position:absolute;z-index:-1;left:calc(50% - 1px);top:0;bottom:0;width:2px;background:linear-gradient(#a19af5,#a99afa);box-shadow:0 0 8px #a19af588,0 0 24px #9390ef44}
 @media(max-width:600px){
  .discovery-tunnel .discovery-tunnel-title{padding:16px}
  .discovery-tunnel .discovery-tunnel-title>p{font-size:9px;letter-spacing:.18em;margin-bottom:22px}

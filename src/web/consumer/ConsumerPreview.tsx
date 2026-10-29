@@ -9,6 +9,7 @@ import { acquireScrollLock } from './scroll-lock';
 import { readGuides, rememberGuide, type GuidePage } from './onboarding';
 import Timeline from '../components/ui/timeline';
 import PerspectiveTunnelHero from '../components/ui/perspective-tunnel-hero';
+import { useScrollConnector } from '../components/ui/scroll-connector';
 import { PlayRoom } from './PlayRoom';
 import { useLocale } from './LocaleProvider';
 import { LANGUAGES, isLocale } from './locales';
@@ -400,6 +401,7 @@ function RecommendationArtwork({ game }: { game: Game }) {
 function RecommendedView({ sections, saved, language, onToggle, excluded, excludeAi, header }: { excludeAi: boolean; excluded: Set<string>; sections: { title: string; games: Game[] }[]; saved: Game[]; language: string; onToggle: (game: Game) => void; header: ReactNode }) {
   const { t } = useLocale();
   const feed = useRef<HTMLDivElement>(null);
+  const feedLine = useRef<HTMLSpanElement>(null);
   const [extra, setExtra] = useState<Game[]>([]);
   const [nextOffset, setNextOffset] = useState(50);
   const [more, setMore] = useState(true);
@@ -449,13 +451,15 @@ function RecommendedView({ sections, saved, language, onToggle, excluded, exclud
   useEffect(() => {
     if (excludeAi && !items.length && !ai.pending && !pending && !loadError && more) void loadMore();
   }, [excludeAi, items.length, ai.pending, pending, loadError, more, nextOffset]);
+  useScrollConnector(feedLine, items.length > 0);
   return <section className="consumer-list-view consumer-recommended-view">
     <PerspectiveTunnelHero items={ai.games.slice(0, 9).map(game => ({ id: game.id, title: game.name, artwork: <Artwork game={game} decorative /> }))} onContinue={() => {
       feed.current?.scrollIntoView({ behavior: 'instant', block: 'start' });
       feed.current?.focus({ preventScroll: true });
     }} />
     <div ref={feed} className="recommendation-feed" tabIndex={-1} aria-label={t('推薦')}>
-    <div className={`recommendation-feed-heading${items.length ? ' is-connected' : ''}`}>
+    <div className="recommendation-feed-heading">
+    {items.length > 0 && <span ref={feedLine} className="recommendation-feed-line scroll-connector" aria-hidden="true" />}
     {header}
     <header><h2>{t('推薦')}</h2></header>
     </div>
