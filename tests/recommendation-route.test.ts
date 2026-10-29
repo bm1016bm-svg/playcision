@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createRecommendationRoute, routeWindow, sampleRoute, ROUTE_STEP_X, ROUTE_STEP_Y } from '../src/web/components/ui/recommendation-route.js';
+import { createRecommendationRoute, routeResumePosition, routeWindow, sampleRoute, ROUTE_SCROLL_STEP, ROUTE_STEP_X, ROUTE_STEP_Y } from '../src/web/components/ui/recommendation-route.js';
 
 describe('recommendation route', () => {
   it('guides the first recommendation downward into the feed', () => {
@@ -36,6 +36,22 @@ describe('recommendation route', () => {
       expect(before.x).toBeCloseTo(at.x, 4); expect(before.y).toBeCloseTo(at.y, 4);
     }
     expect(createRecommendationRoute(0)).toEqual([]);
+  });
+  it('discards a stale scrub cursor after the user scrolls back to the header', () => {
+    expect(routeResumePosition(5.4, 2400, 2600, 37100, 70)).toBe(0);
+    expect(routeResumePosition(.3, 2600, 2600, 37100, 70)).toBe(0);
+  });
+  it('preserves the intended in-journey position as candidate batches arrive', () => {
+    const start = 2600, scrollY = start + 5.4 * ROUTE_SCROLL_STEP;
+    const position = routeResumePosition((scrollY - start) / ROUTE_SCROLL_STEP, scrollY, start, start + 39 * ROUTE_SCROLL_STEP, 40);
+    expect(position).toBeCloseTo(5.4);
+    expect(start + position * ROUTE_SCROLL_STEP).toBe(scrollY);
+    expect(routeResumePosition(position, scrollY, start, start + 69 * ROUTE_SCROLL_STEP, 70)).toBe(position);
+  });
+  it('does not pull readers back from below the route and clamps a shorter list', () => {
+    expect(routeResumePosition(39, 23000, 2600, 22100, 40)).toBe(0);
+    expect(routeResumePosition(5.4, 5300, 2600, 22100, 3)).toBe(2);
+    expect(routeResumePosition(1, 3100, 2600, 3100, 0)).toBe(0);
   });
 });
 

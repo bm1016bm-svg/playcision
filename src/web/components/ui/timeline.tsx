@@ -4,7 +4,7 @@
 import { useId, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { createRecommendationRoute, routeWindow, sampleRoute } from './recommendation-route';
+import { createRecommendationRoute, routeResumePosition, routeWindow, sampleRoute, ROUTE_SCROLL_STEP } from './recommendation-route';
 import './timeline.css';
 import { createLatestPreloader } from './latest-preloader';
 
@@ -116,7 +116,7 @@ export default function Timeline({ items, label, onNearEnd, connectFromAbove = f
         position: Math.max(0, points.length - 1), ease: 'none', onUpdate: draw,
         scrollTrigger: {
           trigger: section, start: 'top 20px',
-          end: () => `+=${Math.max(1, points.length - 1) * 500}`,
+          end: () => `+=${Math.max(1, points.length - 1) * ROUTE_SCROLL_STEP}`,
           pin: true, scrub: .8, invalidateOnRefresh: true,
           onRefresh: draw, anticipatePin: 1,
         },
@@ -124,7 +124,7 @@ export default function Timeline({ items, label, onNearEnd, connectFromAbove = f
       scrollTrigger.current = tween.scrollTrigger ?? null;
       if (resume > 0 && tween.scrollTrigger) {
         tween.scrollTrigger.refresh();
-        window.scrollTo({ top: tween.scrollTrigger.start + resume * 500, behavior: 'instant' });
+        window.scrollTo({ top: tween.scrollTrigger.start + resume * ROUTE_SCROLL_STEP, behavior: 'instant' });
         tween.scrollTrigger.update();
         tween.progress(resume / Math.max(1, points.length - 1));
       }
@@ -133,7 +133,16 @@ export default function Timeline({ items, label, onNearEnd, connectFromAbove = f
     const observer = new ResizeObserver(draw);
     observer.observe(viewport);
     return () => {
-      resumePosition.current = cursor.position; observer.disconnect(); context.revert(); scrollTrigger.current = null;
+      // Candidate batches and viewport changes rebuild the trigger. Capture the
+      // wheel position before removing its spacer; scrub can still be catching up
+      // after the user has already scrolled back into the header.
+      const trigger = scrollTrigger.current;
+      const userScroll = window.scrollY;
+      const intendedPosition = trigger ? (userScroll - trigger.start) / ROUTE_SCROLL_STEP : 0;
+      const previousEnd = trigger?.end ?? 0;
+      observer.disconnect(); context.revert(); scrollTrigger.current = null;
+      const flowStart = section.getBoundingClientRect().top + window.scrollY - 20;
+      resumePosition.current = routeResumePosition(intendedPosition, userScroll, flowStart, previousEnd, points.length);
       // GSAP owns cursor, but draw() writes these styles itself. Return the
       // scene to CSS when switching to the mobile / reduced-motion list.
       world.style.removeProperty('transform'); incoming?.style.removeProperty('height');

@@ -2,6 +2,13 @@ export type RoutePoint = { x: number; y: number };
 export const ROUTE_STEP_X = 460;
 export const ROUTE_STEP_Y = 420;
 export const ROUTE_WINDOW_RADIUS = 4;
+export const ROUTE_SCROLL_STEP = 500;
+
+/** A stale scrub cursor must never pull someone back from the header or footer. */
+export function routeResumePosition(position: number, scrollY: number, start: number, end: number, count: number): number {
+  if (![position, scrollY, start, end, count].every(Number.isFinite) || count < 1 || end <= start || scrollY <= start || scrollY > end) return 0;
+  return Math.max(0, Math.min(count - 1, position));
+}
 
 /** A non-intersecting square spiral: down, left, up, right. */
 export function createRecommendationRoute(count: number): RoutePoint[] {
