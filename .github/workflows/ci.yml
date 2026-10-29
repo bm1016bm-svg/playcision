@@ -43,3 +43,8 @@ jobs:
       - name: Build beta container
         if: matrix.os == 'ubuntu-latest' && matrix.node == 22
         run: docker build -t playcision-beta:ci .
+      - name: Validate Cloudflare bundle and Workers runtime
+        if: matrix.os == 'ubuntu-latest' && matrix.node == 24
+        run: |
+          npm run cloud:bundle
+          npm run cloud:smoke

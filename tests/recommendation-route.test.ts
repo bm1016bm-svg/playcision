@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { createRecommendationRoute, routeWindow, sampleRoute, ROUTE_STEP_X, ROUTE_STEP_Y } from '../src/web/components/ui/recommendation-route.js';
 
 describe('recommendation route', () => {
+  it('guides the first recommendation downward into the feed', () => {
+    const [first, second] = createRecommendationRoute(2);
+    expect(second!.x).toBe(first!.x);
+    expect(second!.y).toBeGreaterThan(first!.y);
+  });
   it('turns through all four directions without overlapping game positions', () => {
     const route = createRecommendationRoute(1000);
     expect(new Set(route.map(p => `${p.x},${p.y}`)).size).toBe(1000);

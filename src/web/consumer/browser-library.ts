@@ -30,3 +30,12 @@ export function hideGame(storage: Pick<Storage, 'getItem' | 'setItem'>, id: stri
   if (Object.keys(next).length > 2000) throw new Error('排除清單已滿，請先恢復排除的遊戲');
   storage.setItem(HIDDEN_KEY, JSON.stringify(next));
 }
+
+/** Persist first so a failed browser write never falsely reports a restored game. */
+export function restoreHiddenGames(storage: Pick<Storage, 'getItem' | 'setItem'>, ids: string[], now = Date.now()): Record<string, number | null> {
+  if (ids.some(id => !/^\d{1,10}$/.test(id))) throw new Error('遊戲代號無效');
+  const next = readHidden(storage, now);
+  for (const id of ids) delete next[id];
+  storage.setItem(HIDDEN_KEY, JSON.stringify(next));
+  return next;
+}

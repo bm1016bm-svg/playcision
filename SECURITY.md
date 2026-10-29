@@ -2,9 +2,9 @@
 
 ## System and scope
 
-Playcision includes a local TypeScript CLI, a React frontend and an invitation-gated Node beta server. The covered boundary includes CLI arguments, YAML configuration, Steam responses, rules and rendering, local state/output, Slack delivery, URL launch, generated scheduler workflows, HTTP authentication/origin checks and shared room persistence.
+Playcision includes a local TypeScript CLI, a React frontend, an invitation-gated Node beta server, and a same-origin Cloudflare Worker with SQLite Durable Objects. The covered boundary includes CLI arguments, YAML configuration, Steam responses, rules and rendering, local state/output, Slack delivery, URL launch, generated scheduler workflows, HTTP authentication/origin checks and shared room persistence.
 
-There is no account service. Tonight Together uses a central Node room backend in beta; the alternate Cloudflare Worker public entry is disabled until verified admission and shared resource quotas exist. Protected assets include invitation/session secrets, anonymous room tokens and private votes, Slack webhooks, local state, filesystem integrity and process availability.
+There is no account service. The Cloudflare web entry is public and requires no invitation, account or session cookie. Tonight Together uses either the central Node room backend or Cloudflare Durable Objects. The Worker must validate canonical origin before accessing its fixed coordinator; global creation quotas and the active-room registry must precede per-room namespace allocation. Room membership and private votes still require per-room authorization. Missing origin/bindings fail closed. The separately invoked Node beta server may use invitation/session secrets. Protected assets include those optional Node secrets, anonymous room tokens and private votes, Slack webhooks, local state, filesystem integrity and process availability. Local runtime tests do not assert production deployment or abuse resistance.
 
 No packaged release channel is asserted in this repository. Until releases exist, only the current source version is considered for security fixes.
 
@@ -28,7 +28,7 @@ Trust boundaries exist at every HTTP response, environment-variable lookup, conf
 - HTTP calls require HTTPS, bounded sizes and timeouts, bounded retries, and explicit response validation.
 - Steam schema drift must fail closed with an actionable error, not silently reinterpret fields.
 - Slack delivery may only use an HTTPS `hooks.slack.com` or `hooks.slack-gov.com` `/services/` URL obtained from the configured environment variable.
-- Webhooks, cookies, tokens, and authorization values must never enter configuration, state, output, logs, exceptions, snapshots, fixtures, or process arguments.
+- Live webhooks, cookies, signing secrets and authorization values must never enter public configuration, output, logs, exceptions, fixtures or process arguments. Anonymous room member tokens are intentionally retained only in the private bounded room store and browser sessionStorage for membership checks, subject to room expiry; never include them in public room views, general CLI state, shared catalog caches or telemetry.
 - External text must be escaped for terminal, Markdown, JSON, and Slack contexts.
 - State and caches must not be treated as trusted code or as authorization.
 

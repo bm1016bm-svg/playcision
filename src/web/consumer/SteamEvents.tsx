@@ -1,8 +1,16 @@
 import { useEffect, useState } from 'react';
 import { CalendarBlank, Check, ArrowClockwise, ImageSquare } from '@phosphor-icons/react';
 import type { SteamEvent } from '../../provider/events';
+import { createDiscoveryCache } from './discovery-cache';
 
 type Page = { events: SteamEvent[]; partial: boolean; hasMore: boolean; nextOffset: number };
+const pages = createDiscoveryCache(async (url, signal): Promise<Page> => {
+  const response = await fetch(url, { signal });
+  if (!response.ok) throw new Error('無法取得活動');
+  const data = await response.json() as Page;
+  if (!Array.isArray(data.events) || !Number.isInteger(data.nextOffset) || typeof data.hasMore !== 'boolean') throw new Error('活動資料格式無效');
+  return data;
+});
 export function SteamEvents({ selected, onSelect }: { selected: string | null; onSelect: (id: string | null) => void }) {
   const [events, setEvents] = useState<SteamEvent[]>([]);
   const [page, setPage] = useState(0);
@@ -15,8 +23,7 @@ export function SteamEvents({ selected, onSelect }: { selected: string | null; o
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true); setError('');
-    void fetch(`/api/steam-events?offset=${page}`, { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(40_000)]) })
-      .then(async response => { if (!response.ok) throw new Error(); return await response.json() as Page; })
+    void pages(`/api/steam-events?offset=${page}`, 'zh-TW', AbortSignal.any([controller.signal, AbortSignal.timeout(40_000)]))
       .then(data => {
         if (controller.signal.aborted) return;
         if (!Array.isArray(data.events)) throw new Error();

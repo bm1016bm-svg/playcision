@@ -1,157 +1,131 @@
 <p><img src="public/brand/wordmark-bilingual.png" width="394" alt="Playcision／遊豫不決" /></p>
 
-> Stop browsing. Start playing.  
-> 別選了，開始玩。  
-> Game of Throws / 擲戲之王
+**遊戲買了，朋友上線了，今晚還是選不出來。**
 
-Playcision is a local-first, agent-native game intelligence program with a CLI and local web UI. It fetches live store data only when a command runs, applies rules from a local YAML file, and produces a discovery list, deal report, or reproducible game roll.
+Playcision 想處理的就是這一小段很熟悉的卡關：從 Steam 找到想玩的遊戲，把心動的留下，再和朋友選出今晚那一款。
 
-No account, central backend, telemetry, or preloaded game database is required. Codex, Claude Code, or another coding agent can install it and edit the same plain files a person can inspect.
+我是台灣的開發者 [@bm1016bm-svg](https://github.com/bm1016bm-svg)。我把它做成一個有點像逛唱片行、又有點像朋友開桌討論的遊戲探索工具。你可以慢慢看封面，也可以直接篩選；再選不出來，就讓骰子接班。
 
-[繁體中文說明](README.zh-TW.md)
+> Stop browsing. Start playing.　別選了，開始玩。
 
-## Status
+[使用與開發說明](README.zh-TW.md) · [資料來源](docs/steam-data.md) · [Cloudflare 部署](docs/cloudflare-release.md) · [回報問題](https://github.com/bm1016bm-svg/playcision/issues)
 
-This repository is an active V1 source build: [bm1016bm-svg/playcision](https://github.com/bm1016bm-svg/playcision). The website is not publicly deployed yet; npm publication is separate from this source release.
+## 先找到想玩的，再找朋友開一桌
 
-Creator: [@bm1016bm-svg](https://github.com/bm1016bm-svg). Follow the author or star this repository to support development. The web UI includes optional coffee support; hosted ECPay checkout remains disabled until the author configures verified payment links. See [setup and indie pilot proposal](docs/support-and-indie-pilot.md).
+| 想做的事 | Playcision 的做法 |
+| --- | --- |
+| 隨便逛逛，看看有沒有對到電波 | **探索**：左滑略過、右滑收藏，也能用方向鍵與按鈕。 |
+| 不想一直盯著同一張卡 | **推薦**：穿過遊戲封面的開場，接著沿著連接線往下逛。 |
+| 今晚的口味很明確 | 依熱門、新品、折扣或 Steam 活動挑來源，再搭配類型、價格、平台與遊玩人數。 |
+| 先存著，等我有空再說 | **收藏**：保存在自己的瀏覽器；長按遊戲可整理進自己命名的歷史收藏資料夾，也能分享清單。 |
+| 四個人有四種想法 | **今晚一起玩**：開一桌、丟候選、投票。平手就保留平手，沒人投也不硬湊一個冠軍。 |
+| 連收藏也選不出來 | 從本次收藏抽一款。骰子不用知道你的人生規劃。 |
 
-`npm view playcision` returned `E404` on 2026-08-10. That only means the registry returned no package at that moment; it does not reserve the name or guarantee future availability. The intended `npx playcision init` flow becomes valid only after a package is actually published.
+多人牌桌從建立起 **10 分鐘到期**，不因操作延長；收藏則留在瀏覽器，不會跟著房間消失。這兩種資料有不同的保存方式，詳細行為見[房間說明](docs/rooms.md)。
 
-## V1 scope
+## 封面是入口，資料還是得老實做
 
-- TypeScript CLI and strict YAML configuration
-- Local swipe UI with keyboard and button alternatives
-- Live Steam discovery and price data
-- New/recent release rules, including Early Access and mature content by default
-- Price thresholds, discount thresholds, local-observed lows, and notification deduplication
-- Uniform or weighted, seeded game rolls
-- Markdown, JSON, terminal, and Slack rendering
-- Local schedulers or GitHub Actions
-- Small, optional local state
+我沒有把整份 Steam 遊戲庫搬進專案，也沒有在後面藏一個模型替遊戲寫介紹。使用者需要資料時，程式向 Steam 取得候選與商店資訊，經過驗證、正規化和篩選，再交給畫面。
 
-Notion, RSS, MCP, and additional stores are later integrations, not V1 promises.
+```mermaid
+flowchart LR
+    A[選來源與篩選條件] --> B[驗證輸入／共用快取]
+    B -->|未命中| C[Steam 資料來源]
+    C --> D[解析與正規化]
+    D --> E[符合條件的候選]
+    B -->|命中| E
+    E --> F[探索／推薦]
+    F --> G[瀏覽器收藏]
+    F --> H[短效多人牌桌]
+```
 
-## Run from source
+資料分工大致是這樣：
 
-Node.js `>=22.12` is required.
+- **遊戲與價格**：Steam Store 搜尋、Store Browse，以及必要時的 `appdetails`，整理 App ID、分類、平台、價格與折扣。
+- **封面與介紹**：沿用 Steam 商店素材，依需求載入；取得失敗時保留可繼續操作的畫面。
+- **評論**：向 Steam 的評論服務查詢，區分使用者語言與全部語言。沒有資料或查詢失敗，都不補一段看起來很像評論的文字。
+- **活動**：從 Steam 的活動索引與活動頁解析名單，再取得活動中的遊戲。這是目前觀察到的商店介面，不能保證列出所有活動或所有參加遊戲。
+- **生成式 AI 聲明**：讀取商店頁的揭露區塊。玩家開啟排除後，探索與推薦都會移除已辨識到聲明的遊戲；無法確認的保留。
+
+**AI 排除依據 Steam 聲明，不是「絕對沒用 AI」認證。** 核心查詢、篩選與抽選也不需要 AI 模型。
+
+Steam 的部分商店介面沒有穩定的公開 API 契約，版型、欄位與限流都可能改變。我把這些依賴集中在 provider 層，替解析器保留測試；詳細端點、限制與官方參考放在[資料契約](docs/steam-data.md)，不把「今天抓得到」寫成永久保證。
+
+## 幾個刻意的選擇
+
+**先有節奏，再談動效。** 深色背景、螢光綠與液態玻璃是這個產品的視覺語言。探索負責快速做決定，推薦則留一點慢慢逛的空間。動畫使用目前候選的真實封面；手機保留一般列表，系統選擇減少動態時也能繼續使用。[推薦路徑](docs/recommendation-timeline.md)記錄了實作與取捨。
+
+**收藏放你這裡。** 本次收藏、資料夾與排除偏好存在 `localStorage`，不要求登入，也沒有自動跨裝置同步。清除網站資料會失去這份收藏；「分享」是你主動複製清單，不是替你發文。多人互動才需要伺服器保存短期房間與投票。[隱私與安全](docs/privacy-security.md)
+
+**不要每滑一下就敲一次 Steam。** 相同查詢共用進行中的請求，成功資料使用有期限、有容量的快取；圖片按瀏覽方向預載。查詢有佇列上限、逾時與限流冷卻，核心列表、圖片和 AI 聲明也有各自受限的通道，避免附加資料把主要操作塞住。[減載設計](docs/load-optimization.md)
+
+**免費部署也要有邊界。** 專案提供 Cloudflare Workers 與 SQLite Durable Objects 的部署路線，網站、API 與房間共用同一個來源，不用另外租 VPS。平台免費配額與程式保護上限仍會限制服務；本機測得能跑，不等於已驗證正式環境可承載多少人。[部署與外網驗收](docs/cloudflare-release.md)
+
+## 想自己跑
+
+需要 Node.js **22.12 以上**。從原始碼安裝與建置：
 
 ```sh
+git clone https://github.com/bm1016bm-svg/playcision.git
+cd playcision
 npm ci
 npm run build
+```
+
+以本機 Workers runtime 預覽目前網站：
+
+```sh
+npx wrangler dev --config wrangler.jsonc --local --var APP_ORIGIN:http://127.0.0.1:4174
+```
+
+開啟 <http://127.0.0.1:4174/>。這個網址只能在自己的電腦使用，預覽入口不需要邀請碼。
+
+專案也保留了 CLI。如果你比較喜歡「跑一次，給我一份清單」：
+
+```sh
 node dist/cli.js init
 node dist/cli.js doctor
 node dist/cli.js digest --dry-run
 node dist/cli.js ui --open
 ```
 
-For local development, use `npm run dev -- <command>`. If you intentionally run `npm link`, the same interface is available as `playcision <command>`.
+CLI 的規則是可編輯的 YAML，能輸出終端、Markdown、JSON，或在明確設定後送到 Slack。價格追蹤只稱為**本機觀測新低**；同一 seed 的抽選，也需要相同候選池與設定才會重現。[CLI 參考](docs/cli.md) · [設定範例](examples/config.tw.yaml)
 
-## Command surface
+開發與檢查：
 
-| Command | Purpose |
+```sh
+npm run dev:ui
+npm run check
+npm run cloud:bundle
+npm run cloud:smoke
+```
+
+`dev:ui` 使用 CLI 的本機設定，請先完成 `init`。一般測試採用可控制的時鐘、HTTP transport 與最小測試資料；不把 Steam 當下是否連得上，當成單元測試通過的前提。
+
+## 現在走到哪了
+
+目前是 **1.0 上線前候選版**，本機可用，尚未公開部署。本文介紹的是這份原始碼中的功能；正式 HTTPS、真機與跨網路驗收仍需另外完成，不把 GitHub 上傳當成網站已上線。
+
+自願支持作者的介面已做好，網站尚未完成 PAYUNi 收款串接。作者已回報新增商店，實際核准、信用卡開通與正式付款結果仍未核對。收款進度與獨立遊戲免費曝光的[待實作試辦方案](docs/support-and-indie-pilot.md)另有說明。
+
+如果你願意試玩、回報一個讓你卡住的地方，或替專案點顆星，我都很歡迎。尤其是那種「我以為按下去會這樣，結果它做了另一件事」的回報，對這個產品很有用。
+
+## 給想看實作的人
+
+| 想看什麼 | 從哪裡開始 |
 | --- | --- |
-| `playcision init` | Create `.playcision/` and guide locale, interests, rules, outputs, and scheduling. |
-| `playcision ui` | Start the loopback-only swipe dashboard. |
-| `playcision discover` | Fetch matching new and recent Steam releases. |
-| `playcision deals` | Evaluate live prices, discounts, explicit wishlist App IDs, an optional public-wishlist sync, and local state. |
-| `playcision roll` | Build a candidate pool and choose one game using uniform or weighted randomness. |
-| `playcision digest` | Run discovery, deals, and a roll, then render configured outputs; add `--notify` to deliver Slack. |
-| `playcision doctor` | Validate configuration, local paths, provider reachability, and output prerequisites. |
+| 資料怎麼抓、欄位怎麼驗證 | [`src/provider`](src/provider) |
+| 探索、收藏、分享與介面狀態 | [`src/web/consumer`](src/web/consumer) |
+| 穿梭開場、推薦路徑、共用 UI | [`src/web/components/ui`](src/web/components/ui) |
+| 同來源 API、共用配額與短效房間 | [`cloud`](cloud) |
+| CLI、規則與輸出 | [`src/cli.ts`](src/cli.ts)、[`src/application`](src/application) |
+| 邊界、失敗情境與回歸測試 | [`tests`](tests) |
 
-Roll controls include `--seed <text>`, `--reroll <counter>`, `--skip <appid> --skip-days <days>`, `--exclude <appid>`, `--open-store`, and `--launch`. A seed is reproducible only with the same normalized configuration, candidate pool, weighting rules, and reroll counter. Live catalog changes can therefore change a later result.
+React、TypeScript、Vite、Motion 與 GSAP 負責網站；CLI 與 Steam provider 共用 TypeScript 核心。雲端適配器使用 Cloudflare Workers／Durable Objects。沒有加入第三方帳號同步或全站行為追蹤。
 
-See [CLI reference](docs/cli.md).
+## 參考與授權
 
-## Local UI
-
-Run `playcision ui --open`. The dashboard binds to `127.0.0.1:4173` by default, performs a dry-run digest, and turns live Discover, Deals, and Roll results into swipe cards. Swipe left to pass, right to add a game to the in-memory Saved list; arrow keys and visible controls provide the same actions, and Backspace undoes the last choice. Seven-day skips and permanent exclusions are explicit state mutations; the Saved list is session-only. Use `npm run dev:ui` for UI development.
-
-## Configuration
-
-The complete V1 example is [`examples/config.tw.yaml`](examples/config.tw.yaml). It follows `src/config/schema.ts` exactly.
-
-```yaml
-deals:
-  maxPrice: 300
-  minDiscountPercent: 20
-  localObservedLowOnly: false
-  wishlistAppIds:
-    - "413150"
-  wishlistSteamId: null
-
-outputs:
-  slack:
-    enabled: true
-    webhookEnv: SLACK_WEBHOOK_URL
-```
-
-`maxPrice` is expressed in the configured currency unit. Internally, Steam prices are normalized from integer hundredths; for example, NT$300.00 is `30000` in that normalized representation.
-
-Price and discount are an OR rule: by default a candidate qualifies at TWD 300 or less, or at 20% off or better. `maxPrice: null` and `minDiscountPercent: 0` disable their respective sides. A detected Store/config currency mismatch fails before price rules run.
-
-V1 uses explicit Steam App IDs in `deals.wishlistAppIds` by default. A user may explicitly set `deals.wishlistSteamId` to a public numeric SteamID64; Playcision then queries the experimental keyless `IWishlistService` surface and merges returned App IDs. Private, empty, missing, and unavailable wishlists may be indistinguishable, and no wishlist sync is attempted when the field is `null`.
-
-## Local files and privacy
-
-```text
-.playcision/
-├── config.yaml
-├── state.json
-├── secrets.example
-├── outputs/
-├── templates/
-└── AGENTS.md
-```
-
-`state.json` is not a game database. It stores only run timestamps, observed prices, notification markers, temporary skips, and permanent exclusions. History defaults to 90 days, and a local lock serializes stateful commands. Disable state to avoid persistence, or delete it to reset history. Doing so also removes deduplication, price-change history, local-observed lows, and persistent skips.
-
-Output paths are project-local. Slack webhook values belong in environment variables or a scheduler secret store, never in `config.yaml`, state, committed files, command-line arguments, or logs.
-
-Read [privacy and security](docs/privacy-security.md) and [the security policy](SECURITY.md).
-
-## Data honesty
-
-Steam's search, Store Browse, and `appdetails` Store endpoints used by V1 are first-party and currently observable without a Web API key, but Valve does not publish them as stable public contracts. HTML/JSON shape, availability, content, and throttling can change. Playcision must validate responses, throttle requests, retry bounded transient failures, and fail with an actionable schema-drift warning.
-
-“Local observed low” means the lowest price this specific state file has seen since tracking began. It is not an all-time Steam historical low.
-
-Steam can still apply regional, legal, age, authentication, and availability restrictions. Enabling mature content does not bypass them.
-
-See [Steam data contracts](docs/steam-data.md).
-
-## Scheduling and delivery
-
-[Scheduling guide](docs/scheduling.md) covers Windows Task Scheduler, Linux cron, macOS launchd, and GitHub Actions. A ready-to-copy workflow is in [`examples/github-actions/daily-digest.yml`](examples/github-actions/daily-digest.yml).
-
-GitHub-hosted runners are ephemeral. The example restores and saves `state.json` through Actions cache, which is best-effort and may be evicted or unavailable. Scheduled runs can be delayed or dropped under load. Slack delivery and deduplication are also best-effort, not exactly-once.
-
-## Interface direction
-
-The default local UI uses Inter, dark blue glass navigation, high-contrast text and a restrained lime accent. Steam artwork stays in a complete 16:9 frame. Skip and Save are the main decisions; tap a card for details. There is no simulated phone frame or operating-system chrome.
-
-- `/` and `/?consumer=1`: consumer interface; `/?lab=1`: design experiments; `/?legacy=1`: former interface.
-- Left/right swipes or arrow keys skip/save; Backspace or the undo button reverses a session decision.
-- Collections are session-only, labeled “本次收藏”; a page reload clears them. Filters and immediate skips also live in this session.
-- Details use the existing local API for seven-day skips and permanent exclusions. Those IDs remain hidden after reload. Failed writes retain the game and offer retry.
-- The Steam tab opens the installed Steam client library or the store. It does not read or claim ownership of games.
-- Provider contract notes are available under Steam → 資料來源. Request failures appear beside the affected operation.
-
-See [design language](docs/design-language.md) and [UI verification](design-qa.md). The CLI and its `NO_COLOR` behavior are unchanged.
-
-## Primary references
-
-- [Steam Web API overview](https://partner.steamgames.com/doc/webapi_overview?language=english)
-- [Steam Web API authentication](https://partner.steamgames.com/doc/webapi_overview/auth?l=english)
-- [Steam Web API response and 429 guidance](https://partner.steamgames.com/doc/webapi_overview/responses?l=english)
-- [Steam Web API Terms of Use](https://steamcommunity.com/dev/apiterms)
-- [Slack incoming webhooks](https://docs.slack.dev/messaging/sending-messages-using-incoming-webhooks)
-- [GitHub Actions scheduled events](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)
-
-## License
-
-[MIT](LICENSE)
-
-## 邀請制網頁內測版
-
-內測版使用獨立 Node 網站入口、瀏覽器收藏與持久房間；與個人 CLI 設定隔離。本次未部署外網。部署、保留期限與回滾方式見 [內測版交付](docs/beta-release.md)，發出邀請前請完成 [驗收表](docs/beta-acceptance.md)。
+- [Steam Web API 說明](https://partner.steamgames.com/doc/webapi_overview?language=english)、[評論服務](https://partner.steamgames.com/doc/webapi/IUserReviewsService)、[內容調查與 AI 揭露](https://partner.steamgames.com/doc/gettingstarted/contentsurvey)
+- [Steam Web API 使用條款](https://steamcommunity.com/dev/apiterms)
+- [Cloudflare 靜態資產計費](https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/)、[Durable Objects](https://developers.cloudflare.com/durable-objects/)
+- 程式碼採 [MIT License](LICENSE)。Steam 商標與遊戲素材的權利屬於各自權利人。

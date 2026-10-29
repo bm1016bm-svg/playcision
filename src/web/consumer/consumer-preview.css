@@ -115,7 +115,7 @@
 .consumer-preferences { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-top: 12px; }
 .consumer-preferences button, .consumer-preferences a { display: inline-flex; align-items: center; min-height: 44px; border: 0; background: transparent; color: var(--consumer-secondary); font-size: 13px; }
 .consumer-warning { width: 100%; margin-bottom: 16px !important; padding: 12px 14px; border: 1px solid #f1c48d55; border-radius: 12px; color: #f6dcb7; background: #302c26; font-size: 13px; overflow-wrap: anywhere; }
-.consumer-toast { position: fixed; z-index: 60; left: 50%; bottom: 108px; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; max-width: calc(100% - 32px); padding: 10px 18px; border: 1px solid var(--consumer-line); border-radius: 14px; background: #21323e; box-shadow: 0 5px 24px #0003; color: var(--consumer-text); }
+.consumer-toast { position: fixed; z-index: 60; left: 50%; bottom: 108px; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; max-width: calc(100% - 32px); padding: 10px 18px; border: 1px solid var(--consumer-line); border-radius: 14px; background: #21323e; box-shadow: 0 5px 24px #0003; color: var(--consumer-text); pointer-events: none; }
 .consumer-toast svg { flex-shrink: 0; color: var(--consumer-accent); }
 .consumer-list-view { width: min(100%, 640px); margin: 24px auto 0; flex: 1; }
 .consumer-list-view > header h1 { display: flex; align-items: center; gap: 12px; font-size: 28px; font-weight: 550; }
@@ -656,8 +656,12 @@
 .consumer-review-stats > div > span:first-child { text-align: left; margin-right: 0; }
 .consumer-review-stats > div > strong, .consumer-review-stats > div > span:last-child { text-align: right; font-variant-numeric: tabular-nums; }
 .consumer-commerce .consumer-price-row { height: auto; }
-.consumer-app--recommended { width: min(100%, 1480px); }
-.consumer-recommended-view { width: 100%; margin-top: 16px; }
+.consumer-app.consumer-app--recommended { width: 100%; }
+.consumer-app--recommended > .consumer-content { padding: 0; }
+.consumer-app--recommended .consumer-recommended-view { width: 100%; margin: 0; padding: 0; }
+.consumer-app--recommended .recommendation-feed { width: min(100%, 1480px); margin-inline: auto; padding: 0 40px calc(110px + env(safe-area-inset-bottom)); }
+@media(max-width:899px){.consumer-app--recommended .recommendation-feed{padding-inline:20px}}
+@media(max-width:600px){.consumer-app--recommended .recommendation-feed{padding-inline:16px}}
 .consumer-recommended-view > header { margin-bottom: 20px; }
 .consumer-shelf { margin-bottom: 28px; min-width: 0; }
 .consumer-shelf > header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
@@ -794,3 +798,14 @@
 .consumer-creator { color: #a9b5bc; font-size: 12px; line-height: 1.5; text-decoration: none; padding: 3px 0; letter-spacing: .02em; }
 .consumer-creator:hover { color: #c4eb85; text-decoration: underline; text-underline-offset: 3px; }
 .consumer-creator:focus-visible { outline: 2px solid #c4eb85; outline-offset: 3px; border-radius: 3px; }
+.consumer-share-tools { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; min-width: 0; }
+.consumer-hidden-manager { display: grid; gap: 20px; min-width: 0; }
+.consumer-hidden-manager > p { margin: 0; color: var(--consumer-muted, #acb8bf); }
+.consumer-hidden-manager ul { display: grid; gap: 0; list-style: none; margin: 0; padding: 0; }
+.consumer-hidden-manager li { display: flex; align-items: center; gap: 16px; justify-content: space-between; padding: 16px 0; border-bottom: 1px solid #ffffff14; }
+.consumer-hidden-manager li > div { display: grid; gap: 6px; min-width: 0; }
+.consumer-hidden-manager a { color: inherit; overflow-wrap: anywhere; }
+.consumer-hidden-manager li span { color: #9aa9b1; font-size: 13px; }
+.consumer-hidden-manager button { flex-shrink: 0; min-height: 44px; padding: 10px 16px; border: 1px solid #c0ee7f55; border-radius: 14px; color: #d3f9a6; background: #c0ee7f0d; cursor: pointer; }
+.consumer-hidden-restore-all { justify-self: end; }
+@media (max-width: 540px) { .consumer-share-heading { flex-wrap: wrap; gap: 12px; } .consumer-share-tools { width: 100%; justify-content: flex-start; } }

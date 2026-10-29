@@ -48,7 +48,7 @@ Favorites and collection folders remain in browser storage; clearing that storag
 
 Local UI rooms are in memory. Invitation beta stores rooms in `<BETA_DATA_DIR>/.playcision/rooms.json`; members receive filtered room views, not other members' tokens or unfinished votes. Room access expires after ten minutes. The beta cleanup timer runs every minute, so disk removal is not an exact ten-minute deadline. Invalid room snapshots can be preserved in private `rooms.quarantine-*.json` files for operator recovery; these exceptions require manual deletion and are not covered by room expiry. Do not include room snapshots in public backups or logs. See [room deployment and retention](rooms.md).
 
-The Cloudflare public Worker entry is currently disabled. The supported invitation beta uses a single Node process; it is not a completed free Cloudflare deployment.
+The Cloudflare web entry is public, without invitation authentication, accounts or login cookies. It retains same-origin checks, a fixed shared quota coordinator and SQLite room Durable Objects. Room actions and private views still require room membership authorization. Room access ends ten minutes after creation; an alarm deletes the object storage, subject to platform scheduling delays. The coordinator keeps bounded daily counters and short-lived room IDs, without member tokens or IPs. Favorites and exclusions stay in the browser. See [Cloudflare deployment and external acceptance](cloudflare-release.md); local runtime verification does not assert a deployed public service or production CPU/quota validation.
 
 ## Slack webhook
 

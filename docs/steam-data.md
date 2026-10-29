@@ -98,3 +98,14 @@ Before accepting a provider change:
 - [`IStoreService` documentation](https://partner.steamgames.com/doc/webapi/IStoreService?l=english)
 - [Steam Web API Terms of Use](https://steamcommunity.com/dev/apiterms)
 - [Steam profile privacy help](https://help.steampowered.com/en/faqs/view/588C-C67D-0251-C276)
+# 評論 API 遷移（2026-10-28）
+
+即時測試發現舊 `/appreviews/<appid>?json=1` 已轉向商店首頁。評論與語系統計改用 Steam 官方 `IUserReviewsService/GetAppReviews/v1/`，不需要 API key；沿用本地語系／全部語系、正評／負評、全部購買來源。新參數使用 `input_json`、數值 enum 和 `languages` 陣列，回應以 HTTP 狀態及 `response` 結構驗證，不再依賴舊 `success`。近期每日統計仍使用原有 histogram；無法取得時不以累計數字替代。
+
+官方依據：[IUserReviewsService 與遷移說明](https://partner.steamgames.com/doc/webapi/IUserReviewsService)。匿名上游有快取與限流，不能保證評論即時性。
+
+## 空評論分頁相容（2026-10-29）
+
+實測影之刃零（App ID `4115450`）的繁中正評查詢回 HTTP 200，`query_summary.num_reviews` 與 `total_matching` 均為 0，但省略 `reviews` 欄位；繁中負評查詢則有實際評論。解析器現在只在明確的 `num_reviews: 0` 下將省略清單視為空陣列，避免空正評讓整個評論視窗失敗。缺少成功分頁依據、`reviews: null` 或分頁數量不一致仍視為格式異常，不假裝成「沒有評論」。
+
+兩個好壞評查詢仍使用同一語言範圍，不會拿其他語言補成使用者語言。回傳的是有限筆數的評論選讀，並非完整評論庫；網路失敗、限流及格式異常仍顯示錯誤供使用者重試。以上是當日回應觀察，Steam 可能隨時新增、刪除或重新分類評論。

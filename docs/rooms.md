@@ -5,7 +5,8 @@
 ## 儲存與同步
 
 - 房間、投票、開始時間在伺服器，不使用瀏覽器儲存作為房間資料庫。
-- 瀏覽器 sessionStorage 只存匿名房間憑證；同一分頁刷新可以回到座位，清除憑證後無法恢復身份。請勿分享此憑證。
+- 瀏覽器 sessionStorage 保存匿名房間憑證，以及本分頁已加入房間的 ID／原始伺服器 `expiresAt`，不保存完整牌桌快照。刷新或重新進入牌桌時，只對已加入過的相同房間做一次有期限的 GET，讀回原座位；未知邀請仍須輸入暱稱加入，不會自動加入或先送出憑證。清除憑證後無法恢復身分，請勿分享此憑證。
+- 恢復不改寫玩家正在輸入的暱稱，也不延長房間期限。是否到期以伺服器回覆的 `serverNow`／`expiresAt` 為準，裝置時鐘快慢不提前退席或延長有效期。403、座位失效或房間到期會清除該房間的恢復記錄；暫時斷線／503 保留恢復記錄並提供重試，離開頁面會中止尚未完成的恢復請求。WebSocket 無效身分關閉後回到加入入口，避免保留無法操作的死牌桌。
 - 房間使用 WebSocket 推送已儲存的狀態變更，不再每秒發出 HTTP 輪詢。伺服器在出牌、投票截止時另行推送階段與結果；倒數在瀏覽器依伺服器時間顯示。投票成功仍以 HTTP 操作回覆為準。每位玩家只收到自己的未公開投票。完成後關閉同步連線；背景分頁與隱藏的牌桌停止連線，返回時重新取得最新狀態。斷線使用有上限的重連間隔，無效身分不自動重試。
 - 房間自建立起 10 分鐘到期，操作不會延長期限；到期後拒絕讀取與出牌，Node 內測版定時清理過期資料。本機 Node 預覽只保存在記憶體；Node 內測版使用專用資料目錄的 `.playcision/rooms.json`，重啟可恢復。房間 token 在入口、engine 與寫入時使用同一 UUID 驗證。
 - 舊快照若有不合格房間，原始內容會保存至同目錄的 `rooms.quarantine-*.json`，有效房間仍可載入，伺服器會記錄不含 token 的復原訊息。隔離檔含私人房間憑證，請限制資料目錄存取；確認不需救援後由管理者刪除。JSON 無法解析或整份格式不合法時保留原檔並回報錯誤。
@@ -18,11 +19,11 @@
 
 ## 雲端房間部署
 
-`cloud/worker.ts` 與 `wrangler.rooms.jsonc` 是未部署的備用實作。公開 Worker 入口現在固定回傳 503，且不呼叫 Durable Object namespace，避免未授權配置雲端資源。CORS／用戶自行產生的房間 token 都不能當作建立房間的授權。
+`cloud/worker.ts` 與 `wrangler.jsonc` 提供 Cloudflare Free 公開版路線，包含網站、Steam API 與 SQLite Durable Objects 房間。網頁與一般遊戲查詢不需帳號、邀請碼或登入 Cookie；建立／加入房間取得匿名憑證後，房間讀取、成員操作與 WebSocket 同步仍須通過房間 token 驗證。部署與外網驗收見 [Cloudflare 公開版部署](cloudflare-release.md)。缺少有效環境設定時入口回 503。
 
-適配器已加入 `acceptWebSocket`、連線 attachment 與階段 alarm，讓已驗證連線可在閒置時休眠；沒有每秒 timer 或輪詢。這部分通過模擬儲存與連線的單元測試，尚未經 Workers runtime 或外網驗收，公開入口仍封鎖。
+適配器使用 `acceptWebSocket`、連線 attachment 與階段 alarm，讓已驗證連線可在閒置時休眠；沒有每秒 timer 或輪詢。`npm run cloud:smoke` 在本機 Workers runtime 實測公開入口、房間權限、休眠恢復與共用配額。外網 HTTPS、多裝置與實際免費額度仍須部署後驗收。
 
-目前使用 Node 內測部署，保持 `VITE_ROOM_API` 未設定。若未來啟用 Worker，必須先實作可驗證的服務端准入、跨物件建立及活躍房間配額，再進行獨立部署驗證；不可直接刪除入口封鎖後上線。
+Node 與 Cloudflare 都使用同來源 `/api/rooms`，保持 `VITE_ROOM_API` 未設定。Worker 在房間 namespace lookup 前驗證來源與房間憑證格式，房間物件再驗證成員權限。網頁本身不需邀請碼或登入。單一協調 DO 持久保存全站建立配額與活躍索引，拒絕不存在房間的資源配置。房間由建立起十分鐘到期，alarm 執行時刪除儲存；平台排程可能延遲，存取拒絕不會延遲。
 
 官方參考：[Durable Objects](https://developers.cloudflare.com/durable-objects/)、[Wrangler deploy](https://developers.cloudflare.com/workers/wrangler/commands/#deploy)。
 

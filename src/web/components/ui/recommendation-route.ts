@@ -3,11 +3,11 @@ export const ROUTE_STEP_X = 460;
 export const ROUTE_STEP_Y = 420;
 export const ROUTE_WINDOW_RADIUS = 4;
 
-/** A non-intersecting square spiral: right, down, left, up. */
+/** A non-intersecting square spiral: down, left, up, right. */
 export function createRecommendationRoute(count: number): RoutePoint[] {
   const points: RoutePoint[] = [];
   let x = 0, y = 0, direction = 0, length = 1;
-  const directions = [[1, 0], [0, 1], [-1, 0], [0, -1]] as const;
+  const directions = [[0, 1], [-1, 0], [0, -1], [1, 0]] as const;
   if (count > 0) points.push({ x, y });
   while (points.length < count) {
     for (let side = 0; side < 2 && points.length < count; side++) {

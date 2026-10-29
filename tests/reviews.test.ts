@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseReviews, parseRecentReviews, mixReviews } from '../src/provider/reviews.js';
+import { parseReviews, parseAppReviews, parseRecentReviews, mixReviews } from '../src/provider/reviews.js';
 import { SteamProvider } from '../src/provider/steam.js';
 const review = (id = '1', positive = true) => ({ recommendationid: id, author: { steamid: '76561198000000001', personaname: '玩家 <script>', playtime_forever: 120 }, review: '真實文字\n第二行', voted_up: positive, timestamp_created: 1700000000, language: 'tchinese' });
 const page = { success: 1, query_summary: { total_positive: 8, total_negative: 2, total_reviews: 10 }, reviews: [review()] };
@@ -35,16 +35,66 @@ describe('Steam reviews boundary', () => {
     const provider = new SteamProvider({ country: 'TW', currency: 'TWD', language: 'tchinese', maxPages: 1, requestDelayMs: 0, timeoutMs: 1000, maxRetries: 0,
       fetch: (async (input: URL | RequestInfo) => {
         const url = new URL(input.toString()); urls.push(url);
-        return new Response(JSON.stringify(url.pathname.includes('histogram') ? { success: 1, results: { recent: [{ date: 86400, recommendations_up: 2, recommendations_down: 3 }] } } : page));
+        const { success: _, ...response } = page;
+        return new Response(JSON.stringify(url.pathname.includes('histogram') ? { success: 1, results: { recent: [{ date: 86400, recommendations_up: 2, recommendations_down: 3 }] } } : { response }));
       }) as typeof fetch });
     expect((await provider.getReviewStats('10')).recent?.percent).toBe(40);
     await provider.getPlayerReviews('10');
-    expect(urls.filter(u => u.pathname.includes('appreviews')).map(u => [u.searchParams.get('language'), u.searchParams.get('review_type'), u.searchParams.get('purchase_type')])).toEqual([['tchinese', 'all', 'all'], ['tchinese', 'positive', 'all'], ['tchinese', 'negative', 'all']]);
+    const requests = urls.filter(u => u.pathname.includes('GetAppReviews')).map(u => JSON.parse(u.searchParams.get('input_json')!));
+    expect(requests.map(r => [r.languages, r.review_type, r.purchase_type])).toEqual([[['tchinese'], 0, 1], [['tchinese'], 1, 1], [['tchinese'], 2, 1]]);
+    expect(requests.every(r => r.appid === 10 && r.filter_offtopic_activity === true)).toBe(true);
     await expect(provider.getReviewStats('../bad')).rejects.toThrow();
   });
   it('retains language statistics on histogram failure without inventing recent results', async () => {
     const provider = new SteamProvider({ country: 'TW', currency: 'TWD', language: 'tchinese', maxPages: 1, requestDelayMs: 0, timeoutMs: 1000, maxRetries: 0,
-      fetch: (async (input: URL | RequestInfo) => new Response(JSON.stringify(input.toString().includes('histogram') ? {} : page))) as typeof fetch });
+      fetch: (async (input: URL | RequestInfo) => { const { success: _, ...response } = page; return new Response(JSON.stringify(input.toString().includes('histogram') ? {} : { response })); }) as typeof fetch });
     expect(await provider.getReviewStats('10')).toMatchObject({ recent: null, localized: { total: 10 }, from: null, to: null });
   });
+});
+it('validates the new service envelope, filtered pages without score totals, and rejects old or inconsistent payloads', () => {
+  const { success: _, ...response } = page;
+  expect(parseAppReviews({ response })).toEqual(parseReviews(page));
+  expect(parseAppReviews({ response: { reviews: [review('2', false)], query_summary: { num_reviews: 1 } } }).summary).toBeNull();
+  for (const value of [page, {}, { response: { success: 0, reviews: [] } }, { response: { reviews: Array(101).fill(review()) } }, { response: { ...response, query_summary: { total_positive: 8, total_negative: 2, total_reviews: 11 } } }]) expect(() => parseAppReviews(value)).toThrow();
+});
+
+it('accepts an explicitly empty service page when Steam omits the reviews field', () => {
+  expect(parseAppReviews({ response: { query_summary: { num_reviews: 0 }, cursor: '', total_matching: 0 } })).toEqual({ summary: null, reviews: [] });
+  expect(parseAppReviews({ response: { query_summary: { num_reviews: 0, total_positive: 0, total_negative: 0, total_reviews: 0 } } })).toEqual({ summary: { positive: 0, negative: 0, total: 0, percent: null }, reviews: [] });
+  for (const value of [
+    { response: {} },
+    { response: { query_summary: {} } },
+    { response: { query_summary: { num_reviews: 1 } } },
+    { response: { query_summary: { num_reviews: '0' } } },
+    { response: { query_summary: { num_reviews: 0 }, reviews: null } },
+    { response: { query_summary: { num_reviews: 0 }, reviews: [review()] } },
+  ]) expect(() => parseAppReviews(value)).toThrow();
+});
+
+it('keeps actual negative reviews when the localized positive page is empty', async () => {
+  const requested: { languages: string[]; review_type: number }[] = [];
+  const provider = new SteamProvider({ country: 'TW', currency: 'TWD', language: 'tchinese', maxPages: 1, requestDelayMs: 0, timeoutMs: 1000, maxRetries: 0,
+    fetch: (async (input: URL | RequestInfo) => {
+      const query = JSON.parse(new URL(input.toString()).searchParams.get('input_json')!) as { languages: string[]; review_type: number };
+      requested.push(query);
+      return new Response(JSON.stringify({ response: query.review_type === 1
+        ? { query_summary: { num_reviews: 0 }, total_matching: 0 }
+        : { query_summary: { num_reviews: 1 }, reviews: [review('2', false)], total_matching: 1 } }));
+    }) as typeof fetch });
+  const result = await provider.getPlayerReviews('4115450');
+  expect(result.language).toBe('tchinese');
+  expect(result.reviews.map(item => [item.id, item.positive, item.language])).toEqual([['2', false, 'tchinese']]);
+  expect(requested.map(item => [item.languages, item.review_type])).toEqual([[['tchinese'], 1], [['tchinese'], 2]]);
+});
+
+it('returns an honest empty list in the requested scope without fetching a different language', async () => {
+  const languages: string[][] = [];
+  const provider = new SteamProvider({ country: 'TW', currency: 'TWD', language: 'tchinese', maxPages: 1, requestDelayMs: 0, timeoutMs: 1000, maxRetries: 0,
+    fetch: (async (input: URL | RequestInfo) => {
+      languages.push(JSON.parse(new URL(input.toString()).searchParams.get('input_json')!).languages);
+      return new Response(JSON.stringify({ response: { query_summary: { num_reviews: 0 }, total_matching: 0 } }));
+    }) as typeof fetch });
+  expect(await provider.getPlayerReviews('10')).toEqual({ language: 'tchinese', reviews: [] });
+  expect(await provider.getPlayerReviews('10', true)).toEqual({ language: 'all', reviews: [] });
+  expect(languages).toEqual([['tchinese'], ['tchinese'], ['all'], ['all']]);
 });

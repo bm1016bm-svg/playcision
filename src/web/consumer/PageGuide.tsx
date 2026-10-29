@@ -1,98 +1,103 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useId, useLayoutEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import type { GuidePage } from './onboarding';
+import { availableGuideSteps, type GuidePage, type GuideStep } from './onboarding';
 import { acquireScrollLock } from './scroll-lock';
+import { layoutGuide, type GuideRect } from './guide-layout';
 
-const steps: Record<GuidePage, { target: string; text: string; hint: string }[]> = {
-  events: [
-    { target: '.steam-event-grid', text: '看看 Steam 活動', hint: '點選活動，再點一次即可取消' },
-    { target: '.filter-panel-actions', text: '套用活動與篩選', hint: '下方可搭配類型、價格、平台與 AI 篩選' },
-  ],
-  discover: [
-    { target: '.consumer-card-stage', text: '左滑略過，右滑收藏', hint: '電腦也能用 ← →' },
-    { target: '.consumer-filter-trigger', text: '想玩哪種？從這裡選', hint: '選來源、選分類，再套用條件' },
-  ],
-  recommended: [
-    { target: '.consumer-shelf-game', text: '往下捲，發現下一款', hint: '跟著遊戲一路逛下去' },
-    { target: '.consumer-shelf-game footer button', text: '心動就收下', hint: '點愛心，留到收藏慢慢挑' },
-    { target: '.consumer-filter-trigger', text: 'AI 排除，兩邊共用', hint: '在篩選開啟，探索與推薦都會套用' },
-  ],
-  saved: [
-    { target: '.consumer-list-view', text: '想玩的，都留在這裡', hint: '點遊戲，看看玩家怎麼說' },
-    { target: '.consumer-pick-button', text: '選不出來？交給手氣', hint: '從你的收藏抽出今晚的一款' },
-  ],
-  library: [
-    { target: '.consumer-share-platforms', text: '挑平台，勾遊戲，分享', hint: '複製清單，貼給你的朋友' },
-    { target: '.consumer-room-switch', text: '也可以，大家一起選', hint: '邀朋友入座，決定今晚玩什麼' },
-  ],
-  filters: [
-    { target: '.filter-source', text: '先選遊戲來源', hint: '熱門暢銷、新品、折扣，選一個' },
-    { target: '.filter-category-grid', text: '選分類，再選類型', hint: '分類展開後，全部類型一次顯示' },
-    { target: '.filter-ai-row', text: '排除已揭露 AI 內容', hint: '探索、推薦，以及後續載入的遊戲都會套用' },
-    { target: '.filter-panel-actions', text: '選好，按套用', hint: '人數、價格、平台也能搭配選擇' },
-  ],
-};
+function findTarget(selector: string): HTMLElement | undefined {
+  return Array.from(document.querySelectorAll<HTMLElement>(selector)).find(element => {
+    const rect = element.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0 && getComputedStyle(element).visibility !== 'hidden';
+  });
+}
 
 export function PageGuide({ page, onClose }: { page: GuidePage; onClose: () => void }) {
   const [guidePage] = useState<GuidePage>(() => page === 'filters' && document.querySelector('.steam-events') ? 'events' : page);
+  const [steps, setSteps] = useState<GuideStep[]>([]);
   const [step, setStep] = useState(0);
-  const [box, setBox] = useState({ x: 20, y: 100, w: 200, h: 80, vw: 390, vh: 844 });
-  const root = useRef<HTMLDivElement>(null);
+  const [geometry, setGeometry] = useState<ReturnType<typeof layoutGuide> | null>(null);
+  const root = useRef<HTMLDivElement>(null), note = useRef<HTMLDivElement>(null), footer = useRef<HTMLElement>(null);
   const next = useRef<HTMLButtonElement>(null);
-  const item = steps[guidePage][step]!;
+  const entered = useRef<{ x: number; y: number; filter: HTMLElement | null; filterTop: number } | null>(null);
+  const marker = `coach-${useId().replace(/[^a-z\d-]/gi, '')}`;
+  const close = useRef(onClose); close.current = onClose;
+  const item = steps[step];
+
   useLayoutEffect(() => {
-    if (page !== 'filters') return;
-    const content = document.querySelector<HTMLElement>('.consumer-filter-content');
-    const scrollTop = content?.scrollTop ?? 0;
-    return () => { if (content?.isConnected) content.scrollTop = scrollTop; };
-  }, [page]);
-  useLayoutEffect(() => {
-    const target = document.querySelector(item.target) ?? document.querySelector('.consumer-list-view h1');
-    const measure = () => {
-      const r = target?.getBoundingClientRect();
-      const vw = window.innerWidth, vh = window.innerHeight;
-      const x = Math.max(12, Math.min(r?.left ?? 24, vw - 60));
-      const y = Math.max(20, Math.min(r?.top ?? 120, vh - 180));
-      setBox({ x, y, w: Math.max(40, Math.min(r?.width ?? 160, vw - x - 12)), h: Math.max(40, Math.min(r?.height ?? 60, vh * .36)), vw, vh });
-    };
-    const r = target?.getBoundingClientRect();
-    if (r && (r.top > window.innerHeight - 160 || r.bottom < 40)) target?.scrollIntoView({ block: 'center', behavior: 'instant' });
-    measure();
-    window.addEventListener('resize', measure);
-    window.addEventListener('scroll', measure, true);
-    return () => { window.removeEventListener('resize', measure); window.removeEventListener('scroll', measure, true); };
-  }, [item]);
-  useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
-    const releaseScroll = acquireScrollLock(document.body);
-    next.current?.focus();
+    const filter = page === 'filters' ? document.querySelector<HTMLElement>('.consumer-filter-content') : null;
+    entered.current ??= { x: window.scrollX, y: page === 'recommended' ? 0 : window.scrollY, filter, filterTop: filter?.scrollTop ?? 0 };
+    const release = acquireScrollLock(document.body);
+    const available = availableGuideSteps(guidePage, selector => !!findTarget(selector));
+    setSteps(available);
+    if (!available.length) close.current();
+    next.current?.focus({ preventScroll: true });
     return () => {
-      releaseScroll();
+      release();
+      const entry = entered.current;
+      if (entry) {
+        window.scrollTo({ left: entry.x, top: entry.y, behavior: 'instant' });
+        if (entry.filter?.isConnected) entry.filter.scrollTop = entry.filterTop;
+      }
       if (previous?.isConnected && !previous.closest('[inert]')) previous.focus({ preventScroll: true });
     };
-  }, []);
-  const below = box.y + box.h + 230 < box.vh;
-  const noteY = below ? box.y + box.h + 82 : Math.max(76, box.y - 180);
-  const noteX = Math.max(24, Math.min(box.x + box.w / 2 - 150, box.vw - 324));
-  const endX = box.x + Math.min(box.w * .65, box.w - 12);
-  const endY = below ? box.y + box.h + 8 : box.y - 8;
-  const startX = noteX + 160, startY = below ? noteY - 12 : noteY + 86;
-  return <motion.div ref={root} className="page-coach" role="dialog" aria-modal="true" aria-label="操作提示" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onKeyDown={event => {
+  }, [page, guidePage]);
+
+  useLayoutEffect(() => {
+    if (!item) return;
+    const target = findTarget(item.target);
+    if (!target) {
+      if (step + 1 >= steps.length) close.current();
+      else setSteps(current => current.filter(candidate => candidate !== item));
+      return;
+    }
+    let frame = 0;
+    const measure = () => {
+      frame = 0;
+      const rect = target.getBoundingClientRect();
+      const box: GuideRect = { x: rect.left, y: rect.top, w: rect.width, h: rect.height };
+      const controls = footer.current?.getBoundingClientRect();
+      setGeometry(layoutGuide(box, { w: window.innerWidth, h: window.innerHeight },
+        { w: note.current?.offsetWidth ?? 300, h: note.current?.offsetHeight ?? 130 }, controls ? { x: controls.x, y: controls.y, w: controls.width, h: controls.height } : window.innerHeight - 100));
+    };
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(measure); };
+    const rect = target.getBoundingClientRect();
+    const safeBottom = guidePage === 'filters' || guidePage === 'events' ? window.innerHeight - 20 : footer.current?.getBoundingClientRect().top ?? window.innerHeight - 100;
+    if (rect.top < 16 || rect.bottom > safeBottom - 16) target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
+    measure();
+    const observer = new ResizeObserver(schedule);
+    const movingScene = target.closest('.game-timeline-scene');
+    const motionObserver = new MutationObserver(schedule);
+    if (movingScene) motionObserver.observe(movingScene, { attributes: true, attributeFilter: ['style'] });
+    observer.observe(target);
+    if (note.current) observer.observe(note.current);
+    if (footer.current) observer.observe(footer.current);
+    window.addEventListener('resize', schedule);
+    window.addEventListener('scroll', schedule, true);
+    return () => {
+      observer.disconnect(); motionObserver.disconnect(); cancelAnimationFrame(frame);
+      window.removeEventListener('resize', schedule); window.removeEventListener('scroll', schedule, true);
+    };
+  }, [item]);
+
+  return <motion.div ref={root} className="page-coach" role="dialog" aria-modal="true" aria-label="操作提示" data-guide-target={item?.target} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onKeyDown={event => {
     if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); onClose(); }
     if (event.key === 'Tab') {
       const buttons = root.current?.querySelectorAll('button');
       if (!buttons?.length) return;
-      event.preventDefault();
-      event.stopPropagation();
+      event.preventDefault(); event.stopPropagation();
       (document.activeElement === buttons[0] ? buttons[1] : buttons[0])?.focus();
     }
   }}>
     <svg className="page-coach-art" width="100%" height="100%" aria-hidden="true">
-      <defs><mask id={`coach-mask-${page}`}><rect width="100%" height="100%" fill="white" /><rect x={box.x - 5} y={box.y - 5} width={box.w + 10} height={box.h + 10} rx="18" fill="#777" /></mask></defs>
-      <rect width="100%" height="100%" fill="#03090f" opacity=".74" mask={`url(#coach-mask-${page})`} />
-      <path d={`M ${startX} ${startY} C ${startX + 70} ${startY + (below ? -42 : 42)}, ${endX + 48} ${endY + (below ? 55 : -55)}, ${endX} ${endY} m -12 ${below ? 17 : -17} q 6 ${below ? -8 : 8} 12 ${below ? -17 : 17} q 8 ${below ? 7 : -7} 20 ${below ? 10 : -10}`} fill="none" stroke="#e1eacb" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" />
+      <defs>
+        <mask id={`${marker}-mask`}><rect width="100%" height="100%" fill="white" />{geometry && <rect x={geometry.target.x - 6} y={geometry.target.y - 6} width={geometry.target.w + 12} height={geometry.target.h + 12} rx="16" fill="#555" />}</mask>
+        <marker id={`${marker}-arrow`} markerWidth="15" markerHeight="15" refX="12" refY="7.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M 2 2 L 12 7.5 L 2 13" fill="none" stroke="#e1eacb" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" /></marker>
+      </defs>
+      <rect width="100%" height="100%" fill="#03090f" opacity=".74" mask={`url(#${marker}-mask)`} />
+      {geometry && <path data-guide-arrow d={geometry.path} markerEnd={`url(#${marker}-arrow)`} fill="none" stroke="#e1eacb" strokeWidth="2.3" strokeLinecap="round" />}
     </svg>
-    <div className="page-coach-note" style={{ left: noteX, top: noteY }} key={`${page}-${step}`}><p>{item.text}</p><span>{item.hint}</span></div>
-    <footer><button type="button" onClick={onClose}>略過教學</button><div><span>{step + 1} / {steps[guidePage].length}</span><button ref={next} type="button" onClick={() => step + 1 < steps[guidePage].length ? setStep(step + 1) : onClose()}>{step + 1 < steps[guidePage].length ? '下一個' : '開始玩'}<span aria-hidden="true"> ↗</span></button></div></footer>
+    <div ref={note} className="page-coach-note" style={{ left: geometry?.note.x ?? 20, top: geometry?.note.y ?? 80, visibility: geometry ? 'visible' : 'hidden' }}><p>{item?.text}</p><span>{item?.hint}</span></div>
+    <footer ref={footer} style={guidePage === 'filters' || guidePage === 'events' ? { top: 24, bottom: 'auto' } : undefined}><button type="button" onClick={onClose}>略過教學</button><div><span>{Math.min(step + 1, steps.length)} / {steps.length}</span><button ref={next} type="button" onClick={() => step + 1 < steps.length ? setStep(step + 1) : onClose()}>{step + 1 < steps.length ? '下一個' : '開始玩'}<span aria-hidden="true"> ↗</span></button></div></footer>
   </motion.div>;
 }

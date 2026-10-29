@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "playcision",
+  "main": "cloud/worker.ts",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  "preview_urls": false,
+  "send_metrics": false,
+  "assets": { "directory": "./dist/web", "binding": "ASSETS", "run_worker_first": true, "not_found_handling": "single-page-application" },
+  "vars": { "APP_ORIGIN": "https://REPLACE-WITH-YOUR-WORKER.workers.dev" },
+  "durable_objects": { "bindings": [
+    { "name": "ROOMS", "class_name": "PlayRoomObject" },
+    { "name": "COORDINATOR", "class_name": "AppCoordinator" }
+  ] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["PlayRoomObject", "AppCoordinator"] }],
+  "observability": { "enabled": false },
+  "dev": { "ip": "127.0.0.1", "port": 4174 }
+}

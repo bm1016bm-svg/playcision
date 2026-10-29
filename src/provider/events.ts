@@ -1,4 +1,4 @@
-import { load } from 'cheerio';
+import { load } from 'cheerio/slim';
 import { z } from 'zod';
 import { boundedResponseText, cancelResponse, retryAfterMilliseconds } from '../http/safety.js';
 import { createQueryCache } from '../ui/query-cache.js';

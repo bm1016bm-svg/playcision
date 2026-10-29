@@ -1,4 +1,4 @@
-import { load } from 'cheerio';
+import { load } from 'cheerio/slim';
 import type { Game, GamePrice, Money, ProviderQuery } from '../domain/types.js';
 import { schemaDrift } from './errors.js';
 

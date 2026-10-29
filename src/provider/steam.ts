@@ -1,4 +1,4 @@
-import { parseReviews, parseRecentReviews, mixReviews, type ReviewStats } from './reviews.js';
+import { parseAppReviews, parseRecentReviews, mixReviews, type ReviewStats } from './reviews.js';
 import { boundedResponseText, cancelResponse, retryAfterMilliseconds, RetryBudget, RetryDeadlineError } from '../http/safety.js';
 import type { DiscoveryRequest } from '../ui/discovery.js';
 import type {
@@ -605,16 +605,18 @@ export class SteamProvider implements GameProvider {
   }
 
   private reviewUrl(appId: string, language: string, type = 'all', size = 1) {
-    if (!/^\d{1,10}$/.test(appId)) throw new Error('Invalid Steam App ID');
-    const url = new URL(`${this.options.storeBaseUrl}/appreviews/${appId}`);
-    url.search = new URLSearchParams({ json: '1', filter: size > 1 ? 'all' : 'recent', day_range: '365', language, review_type: type, purchase_type: 'all', num_per_page: String(size), cursor: '*', filter_offtopic_activity: '1' }).toString();
+    if (!/^\d{1,10}$/.test(appId) || +appId < 1 || +appId > 4294967295) throw new Error('Invalid Steam App ID');
+    const url = new URL(`${this.options.apiBaseUrl}/IUserReviewsService/GetAppReviews/v1/`);
+    url.searchParams.set('input_json', JSON.stringify({ appid: Number(appId), filter: size > 1 ? 0 : 1, day_range: 365,
+      languages: [language], review_type: type === 'positive' ? 1 : type === 'negative' ? 2 : 0,
+      purchase_type: 1, num_per_page: size, cursor: '*', filter_offtopic_activity: true }));
     return url;
   }
 
   async getReviewStats(appId: string): Promise<ReviewStats> {
     const url = this.reviewUrl(appId, this.options.language);
     let localized = null, recent = null, from = null, to = null;
-    try { localized = parseReviews(await this.requestJson(url, 'reviews')).summary; } catch { /* Partial results remain usable. */ }
+    try { localized = parseAppReviews(await this.requestJson(url, 'reviews')).summary; } catch { /* Partial results remain usable. */ }
     try {
       const histogram = new URL(`${this.options.storeBaseUrl}/appreviewhistogram/${appId}`);
       histogram.searchParams.set('l', this.options.language);
@@ -627,8 +629,8 @@ export class SteamProvider implements GameProvider {
 
   async getPlayerReviews(appId: string, allLanguages = false) {
     const language = allLanguages ? 'all' : this.options.language;
-    const positive = parseReviews(await this.requestJson(this.reviewUrl(appId, language, 'positive', 6), 'positive reviews')).reviews;
-    const negative = parseReviews(await this.requestJson(this.reviewUrl(appId, language, 'negative', 6), 'negative reviews')).reviews;
+    const positive = parseAppReviews(await this.requestJson(this.reviewUrl(appId, language, 'positive', 6), 'positive reviews')).reviews;
+    const negative = parseAppReviews(await this.requestJson(this.reviewUrl(appId, language, 'negative', 6), 'negative reviews')).reviews;
     return { language, reviews: mixReviews(positive, negative) };
   }
 

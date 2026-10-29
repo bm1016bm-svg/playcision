@@ -1,6 +1,6 @@
 # 內測版交付與部署
 
-本次只準備檔案，不部署外網。這是一台伺服器、一個 Node 程序的邀請制內測版本；不要開多個 app 副本。網站、Steam 資料 API、房間使用同一個網域。`cloud/worker.ts` 是另一條未採用的部署路線，不需設定 `VITE_ROOM_API`。
+本文件保留一台主機、一個 Node 程序的邀請制內測部署，請勿開多個 app 副本。若使用免費 Cloudflare，改依 [Cloudflare 免費部署](cloudflare-release.md)，不需租主機或 Docker。兩條路線均讓網站、Steam API 與房間使用同一個網域，不需設定 `VITE_ROOM_API`。
 
 ## 檔案入口
 

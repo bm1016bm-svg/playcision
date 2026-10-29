@@ -74,6 +74,13 @@
   .consumer-testimonials { height: min(390px, 53dvh); }
   .consumer-testimonial { width: min(290px, calc(100vw - 64px)); left: max(32px, calc(50% - 145px)); height: min(344px, 47dvh); padding: 20px; }
 
+  .page-coach-note p { font-size: 22px; margin-bottom: 8px; }
+  .page-coach-note > span { font-size: 13px; }
+  .page-coach footer { bottom: max(20px, env(safe-area-inset-bottom)); width: calc(100% - 32px); gap: 8px; }
+  .page-coach footer > div { gap: 12px; }
+  .page-coach footer > div > span, .page-coach button { white-space: nowrap; }
+  .page-coach footer > div > button { padding: 10px 14px; font-size: 14px; }
+
   #share-room-panel .play-room { margin: 16px 0 0; padding-bottom: 0; }
   .room-heading h2 { font-size: 20px; }
   .room-toolbar { margin-top: 10px; padding: 4px 0; min-height: 44px; }
@@ -85,7 +92,7 @@
   .room-arena .room-seat small { font-size: 10px; line-height: 1.4; margin-top: 2px; }
   .room-arena .room-seat--1 small, .room-arena .room-seat--3 small { max-width: 42px; }
   .room-arena .room-table { border-radius: 20px; padding: 4px; }
-  .room-felt { min-height: 168px; max-height: 320px; padding: 10px; border-radius: 16px; }
+  .room-felt { min-height: 168px; max-height: 320px; padding: 10px; border-radius: 16px; overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: contain; }
   .room-stage-mark { width: 48px; height: 48px; border-radius: 16px; }
   .room-stage-mark svg { width: 28px; height: 28px; }
   .room-table-empty p { margin-top: 12px; font-size: 12px; }
@@ -97,6 +104,18 @@
   .room-felt .room-game h3 { font-size: 13px; }
   .room-felt .room-game p { font-size: 11px; }
   .room-felt .room-vote { min-height: 44px; font-size: 12px; }
+}
+
+@media (max-width: 420px) {
+  .room-arena { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .room-arena .room-seat--1, .room-arena .room-seat--2, .room-arena .room-seat--3 { flex-direction: column; text-align: center; gap: 4px; }
+  .room-arena .room-seat small { max-width: none; }
+}
+
+/* Landscape phones must retain navigation on the sharing page as well. */
+@media (min-width: 601px) and (max-width: 1000px) and (max-height: 500px) {
+  .consumer-app .consumer-bottom-nav { position: fixed; left: 50%; bottom: max(12px, env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(440px, calc(100% - 32px)); margin: 0; }
+  .consumer-content { padding-bottom: calc(110px + env(safe-area-inset-bottom)); }
 }
 
 @media (max-width: 600px) and (max-height: 720px) {

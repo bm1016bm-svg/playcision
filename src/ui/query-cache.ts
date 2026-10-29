@@ -42,7 +42,7 @@ export function createQueryCache<T>(options: {
       const run = () => {
         active++;
         void Promise.resolve().then(loader).then(value => {
-          const size = Buffer.byteLength(JSON.stringify(value));
+          const size = new TextEncoder().encode(JSON.stringify(value)).byteLength;
           for (const [oldKey, entry] of ready) if (entry.expires <= Date.now()) remove(oldKey);
           if (size <= options.bytes) {
             ready.set(key, { value, bytes: size, expires: Date.now() + options.ttlMs });

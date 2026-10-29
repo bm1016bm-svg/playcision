@@ -8,6 +8,7 @@ import { PageGuide } from './PageGuide';
 import { acquireScrollLock } from './scroll-lock';
 import { readGuides, rememberGuide, type GuidePage } from './onboarding';
 import Timeline from '../components/ui/timeline';
+import PerspectiveTunnelHero from '../components/ui/perspective-tunnel-hero';
 import { PlayRoom } from './PlayRoom';
 import { useLocale } from './LocaleProvider';
 import { LANGUAGES, isLocale } from './locales';
@@ -58,13 +59,14 @@ import { buildRollPool, uniqueGames, compactLabels, formatGamePrice, safeStoreUr
 import type { Game, UiPayload } from '../types';
 import './consumer-preview.css';
 import './consumer-mobile.css';
+import './liquid-glass.css';
 import { AmbientBackground } from './AmbientBackground';
 import { genreLabel } from './genre-labels';
 import { Synopsis, usePresentation } from './presentation';
 import { ReviewStatsRows, useReviewData, reviewLanguageLabel, type ReviewList } from './reviews';
 import { preloadArtwork, useArtwork, warmArtwork } from './artwork';
 import { preloadWindow } from './artwork-cache';
-import { LIBRARY_KEY, parseLibrary, readHidden, hideGame } from './browser-library';
+import { LIBRARY_KEY, parseLibrary, readHidden, hideGame, restoreHiddenGames } from './browser-library';
 
 type ConsumerTab = 'discover' | 'recommended' | 'saved' | 'library';
 type Decision = 'skip' | 'save';
@@ -102,7 +104,7 @@ function ConsumerError({ message, onRetry }: { message: string; onRetry: () => v
   );
 }
 
-function ConsumerSheet({ title, onClose, children, reviews = false, fullscreen = false, guide = false, inactive = false, onHelp }: { onHelp?: () => void; title: string; onClose: () => void; children: ReactNode; reviews?: boolean; fullscreen?: boolean; guide?: boolean; inactive?: boolean }) {
+function ConsumerSheet({ title, onClose, children, reviews = false, fullscreen = false, guide = false, glass = false, inactive = false, onHelp }: { onHelp?: () => void; title: string; onClose: () => void; children: ReactNode; reviews?: boolean; fullscreen?: boolean; guide?: boolean; glass?: boolean; inactive?: boolean }) {
   const { t } = useLocale();
   const closeRef = useRef<HTMLButtonElement>(null);
   const sheetRef = useRef<HTMLElement>(null);
@@ -128,8 +130,8 @@ function ConsumerSheet({ title, onClose, children, reviews = false, fullscreen =
   }, []);
 
   return (
-    <motion.div className={`consumer-sheet-scrim${reviews ? " consumer-reviews-scrim" : ""}${fullscreen ? " consumer-filter-scrim" : ""}${guide ? " consumer-guide-scrim" : ""}`} role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-      <motion.section ref={sheetRef} inert={inactive} className={`consumer-sheet${reviews ? " consumer-reviews-sheet" : ""}${fullscreen ? " consumer-filter-sheet" : ""}`} role="dialog" aria-modal="true" aria-label={title} initial={{ y: reduceMotion ? 0 : reviews || fullscreen ? 16 : '100%' }} animate={{ y: 0 }} exit={{ y: reduceMotion ? 0 : reviews || fullscreen ? 16 : '100%' }} transition={{ duration: reduceMotion ? 0 : .26, ease: [0.22, 1, 0.36, 1] }}>
+    <motion.div className={`consumer-sheet-scrim${reviews ? " consumer-reviews-scrim" : ""}${fullscreen ? " consumer-filter-scrim" : ""}${guide ? " consumer-guide-scrim" : ""}${glass ? " consumer-support-scrim" : ""}`} role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+      <motion.section ref={sheetRef} inert={inactive} className={`consumer-sheet${reviews ? " consumer-reviews-sheet" : ""}${fullscreen ? " consumer-filter-sheet" : ""}${glass ? " consumer-support-sheet" : ""}`} role="dialog" aria-modal="true" aria-label={title} initial={{ y: reduceMotion ? 0 : reviews || fullscreen || glass ? 16 : '100%' }} animate={{ y: 0 }} exit={{ y: reduceMotion ? 0 : reviews || fullscreen || glass ? 16 : '100%' }} transition={{ duration: reduceMotion ? 0 : .26, ease: [0.22, 1, 0.36, 1] }}>
         <div className="consumer-sheet-handle" aria-hidden="true" />
         <header><h2>{title}</h2>{onHelp && <button type="button" onClick={onHelp} aria-label="重看使用教學" className="consumer-guide-help"><Question aria-hidden="true" /></button>}<button ref={closeRef} type="button" onClick={onClose} aria-label={`${t('關閉')} ${title}`}><X aria-hidden="true" /></button></header>
         {children}
@@ -340,7 +342,7 @@ function SavedView({ games, language, seed, onOpen, onExplore, onRemove, onClear
       {!history.open && history.status && <p role="status">{history.status}</p>}
       {editing && games.length > 0 && <div className="consumer-saved-tools">{confirmClear ? <><span>清空所有收藏？</span><button type="button" onClick={() => { onClear(); setConfirmClear(false); setEditing(false); }}>確認清空</button><button type="button" onClick={() => setConfirmClear(false)}>取消</button></> : <button type="button" onClick={() => setConfirmClear(true)}>清空收藏</button>}</div>}
       {games.length > 0 && <div className="consumer-saved-picker">
-        <button className="consumer-pick-button" disabled={rolling} onClick={choose}><motion.span animate={rolling ? { rotate: [-12, 12, -12], y: [0, -3, 0] } : { rotate: 0, y: 0 }} transition={rolling ? { duration: .3, repeat: Infinity } : { duration: 0 }}><DiceFive aria-hidden="true" /></motion.span>{rolling ? t("正在抽選…") : t("從收藏中幫我選一款")}</button>
+        <button data-guide="saved-picker" className="consumer-pick-button" disabled={rolling} onClick={choose}><motion.span animate={rolling ? { rotate: [-12, 12, -12], y: [0, -3, 0] } : { rotate: 0, y: 0 }} transition={rolling ? { duration: .3, repeat: Infinity } : { duration: 0 }}><DiceFive aria-hidden="true" /></motion.span>{rolling ? t("正在抽選…") : t("從收藏中幫我選一款")}</button>
         <div className="consumer-draw-status" role="status">{rolling ? t('正在抽選…') : picked ? picked.name : ''}</div>
         {displayed && <div className={`consumer-draw ${rolling ? 'is-rolling' : 'is-revealed'}`}>
           {!rolling && !reduceMotion && <div key={celebration} className="consumer-draw-effects" aria-hidden="true">
@@ -356,7 +358,7 @@ function SavedView({ games, language, seed, onOpen, onExplore, onRemove, onClear
       {games.length === 0 ? <div className="consumer-empty-view"><Heart aria-hidden="true" /><h2>{t("還沒有收藏")}</h2><button onClick={onExplore}>{t("探索遊戲")}<ArrowUpRight aria-hidden="true" /></button></div> : <div className="consumer-saved-columns">{savedGroups.map(group => <section className="consumer-saved-group" key={group.id} aria-labelledby={`saved-${group.id}`}>
         <h2 id={`saved-${group.id}`}>{t(group.title)}<span>{group.games.length}</span></h2>
         <div className="consumer-saved-list">{group.games.map(game => <div className="consumer-saved-row" key={game.id} onPointerDown={event => { if (!editing && !rolling) history.begin(event, game); }} onDragStart={event => event.preventDefault()} onContextMenu={event => event.preventDefault()}>
-          <button className="consumer-saved-open" type="button" onClick={() => { if (!history.consumeClick()) onOpen(game); }}><div className="consumer-saved-art"><Artwork game={game} decorative /></div><div><strong>{game.name}</strong><small>{t(formatGamePrice(game, language))}</small></div><Info aria-hidden="true" /></button>
+          <button className="consumer-saved-open" data-guide="saved-games" type="button" onClick={() => { if (!history.consumeClick()) onOpen(game); }}><div className="consumer-saved-art"><Artwork game={game} decorative /></div><div><strong>{game.name}</strong><small>{t(formatGamePrice(game, language))}</small></div><Info aria-hidden="true" /></button>
           {!editing && !rolling && history.handle(game)}
           {editing && <button data-no-drag className="consumer-saved-remove" type="button" aria-label={`移除收藏 ${game.name}`} onClick={() => onRemove(game.id)}><X aria-hidden="true" /></button>}
         </div>)}</div>
@@ -395,27 +397,41 @@ function RecommendationArtwork({ game }: { game: Game }) {
   return <div ref={host} className="consumer-shelf-art">{visible ? <Artwork game={game} decorative /> : <div className="consumer-artwork-loading" />}</div>;
 }
 
-function RecommendedView({ sections, saved, language, onToggle, excluded, excludeAi }: { excludeAi: boolean; excluded: Set<string>; sections: { title: string; games: Game[] }[]; saved: Game[]; language: string; onToggle: (game: Game) => void }) {
+function RecommendedView({ sections, saved, language, onToggle, excluded, excludeAi, header }: { excludeAi: boolean; excluded: Set<string>; sections: { title: string; games: Game[] }[]; saved: Game[]; language: string; onToggle: (game: Game) => void; header: ReactNode }) {
   const { t } = useLocale();
+  const feed = useRef<HTMLDivElement>(null);
   const [extra, setExtra] = useState<Game[]>([]);
   const [nextOffset, setNextOffset] = useState(50);
   const [more, setMore] = useState(true);
   const [pending, setPending] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const inflight = useRef(false);
+  const pageRequest = useRef<AbortController | null>(null);
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; pageRequest.current?.abort(); };
+  }, []);
   const ai = useAiFilter(uniqueGames([...sections.flatMap(section => section.games), ...extra]).filter(game => !excluded.has(game.id)), excludeAi);
   const permitted = new Set(ai.games.map(game => game.id));
   const loadMore = async () => {
     if (inflight.current || !more || ai.pending) return;
     inflight.current = true; setPending(true); setLoadError(false);
+    const controller = new AbortController(); pageRequest.current = controller;
     try {
-      const response = await fetch(`/api/recommendations?offset=${nextOffset}`, { signal: AbortSignal.timeout(45000) });
-      if (!response.ok) throw new Error('load');
-      const page = await response.json() as { games: Game[]; nextOffset: number; hasMore: boolean };
+      const page = await discoveryPages(`/api/recommendations?offset=${nextOffset}`, language, AbortSignal.any([controller.signal, AbortSignal.timeout(45000)]));
+      if (controller.signal.aborted) return;
       setExtra(current => uniqueGames([...current, ...page.games]));
       setNextOffset(page.nextOffset); setMore(page.hasMore);
-    } catch { setLoadError(true); }
-    finally { inflight.current = false; setPending(false); }
+    } catch { if (!controller.signal.aborted) setLoadError(true); }
+    finally {
+      if (pageRequest.current === controller) {
+        inflight.current = false;
+        // StrictMode replays effect setup after cleanup. Clear its canceled
+        // request too, so automatic continuation can start again after remount.
+        if (mounted.current) setPending(false);
+      }
+    }
   };
   const seen = new Set<string>();
   const items = [...sections, { title: '熱門暢銷', games: extra.filter(game => !excluded.has(game.id)) }].flatMap(section => section.games.filter(game => {
@@ -427,34 +443,57 @@ function RecommendedView({ sections, saved, language, onToggle, excluded, exclud
       <RecommendationArtwork game={game} />
       <h3 title={game.name}>{game.name}</h3>
       <div className="consumer-shelf-platforms"><PlatformIcons platforms={game.platforms} /></div>
-      <footer><span>{game.price.discountPercent > 0 && <small>-{game.price.discountPercent}%</small>}<strong>{t(formatGamePrice(game, language))}</strong></span><button type="button" className={selected ? 'is-saved' : ''} aria-label={`${selected ? t('已收藏') : t('加入收藏')} ${game.name}`} aria-pressed={selected} onClick={() => onToggle(game)}><Heart weight={selected ? 'fill' : 'regular'} aria-hidden="true" /></button></footer>
+      <footer><span>{game.price.discountPercent > 0 && <small>-{game.price.discountPercent}%</small>}<strong>{t(formatGamePrice(game, language))}</strong></span><button data-guide="recommendation-favorite" type="button" className={selected ? 'is-saved' : ''} aria-label={`${selected ? t('已收藏') : t('加入收藏')} ${game.name}`} aria-pressed={selected} onClick={() => onToggle(game)}><Heart weight={selected ? 'fill' : 'regular'} aria-hidden="true" /></button></footer>
     </article> };
   }));
   useEffect(() => {
     if (excludeAi && !items.length && !ai.pending && !pending && !loadError && more) void loadMore();
   }, [excludeAi, items.length, ai.pending, pending, loadError, more, nextOffset]);
   return <section className="consumer-list-view consumer-recommended-view">
-    <header><h1>{t('推薦')}</h1></header>
-    
-    {!items.length ? ai.pending || pending ? <div role="status"><LoadingQuote compact /><p>{t('正在檢查 AI 聲明…')}</p></div> : <p>{t('沒有符合條件的遊戲')}</p> : <Timeline items={items} label={t('探索遊戲')} onNearEnd={!ai.pending && !pending && !loadError && more ? loadMore : undefined} />}
+    <PerspectiveTunnelHero items={ai.games.slice(0, 9).map(game => ({ id: game.id, title: game.name, artwork: <Artwork game={game} decorative /> }))} onContinue={() => {
+      feed.current?.scrollIntoView({ behavior: 'instant', block: 'start' });
+      feed.current?.focus({ preventScroll: true });
+    }} />
+    <div ref={feed} className="recommendation-feed" tabIndex={-1} aria-label={t('推薦')}>
+    <div className={`recommendation-feed-heading${items.length ? ' is-connected' : ''}`}>
+    {header}
+    <header><h2>{t('推薦')}</h2></header>
+    </div>
+    {!items.length ? ai.pending || pending ? <div role="status"><LoadingQuote compact /><p>{t('正在檢查 AI 聲明…')}</p></div> : <p>{t('沒有符合條件的遊戲')}</p> : <Timeline items={items} label={t('探索遊戲')} connectFromAbove onNearEnd={!ai.pending && !pending && !loadError && more ? loadMore : undefined} />}
     <div className="recommendation-continuation" role="status">{pending || ai.pending ? <LoadingQuote compact /> : loadError ? <button onClick={() => void loadMore()}>暫時載入不了，點此重試</button> : !more ? '這輪看完了，喜歡的遊戲都在收藏裡。' : <button onClick={() => void loadMore()}>看更多遊戲</button>}</div>
+    </div>
   </section>;
 }
 
 const discoveryPages = createDiscoveryCache(async (url: string, signal: AbortSignal) => {
   const response = await fetch(url, { signal });
-  const result = await response.json() as { games?: Game[]; hasMore?: boolean; error?: string };
-  if (!response.ok || !Array.isArray(result.games)) throw new Error(result.error || '無法取得遊戲');
+  const result = await response.json() as { games: Game[]; nextOffset: number; hasMore: boolean; error?: string };
+  if (!response.ok || !Array.isArray(result.games) || !Number.isInteger(result.nextOffset) || typeof result.hasMore !== 'boolean') throw new Error(result.error || '無法取得遊戲');
   return result;
 });
 
-function LibraryView({ games, suggestions, onExplore, initialRoom = false }: { games: Game[]; suggestions: Game[]; onExplore: () => void; initialRoom?: boolean }) {
+function LibraryView({ games, suggestions, onExplore, onRestore, initialRoom = false }: { games: Game[]; suggestions: Game[]; onExplore: () => void; onRestore: (hidden: Record<string, number | null>, ids: string[]) => void; initialRoom?: boolean }) {
   const { t } = useLocale();
   const [roomMode, setRoomMode] = useState(initialRoom);
   const [showRoomGuide, setShowRoomGuide] = useState(false);
+  const [showHidden, setShowHidden] = useState(false);
+  const [hidden, setHidden] = useState<Record<string, number | null>>({});
+  const [hiddenError, setHiddenError] = useState('');
+  const openHidden = () => {
+    setHiddenError('');
+    try { setHidden(readHidden(localStorage)); } catch { setHiddenError('無法讀取排除清單，原資料已保留。'); }
+    setShowHidden(true);
+  };
+  const restore = (ids: string[]) => {
+    try {
+      const next = restoreHiddenGames(localStorage, ids);
+      setHidden(next); setHiddenError(''); onRestore(next, ids);
+    } catch { setHiddenError('無法儲存變更，排除清單已保留，請重試。'); }
+  };
+  const names = new Map([...suggestions, ...games].map(game => [game.id, game.name]));
   return (
     <section className="consumer-list-view consumer-share-view">
-      <header className="consumer-share-heading"><h1>{t("分享")}</h1><button type="button" className="consumer-room-switch" aria-expanded={roomMode || showRoomGuide} aria-controls="share-room-panel" aria-haspopup={roomMode ? undefined : 'dialog'} onClick={() => { if (roomMode) setRoomMode(false); else setShowRoomGuide(true); }}>{roomMode ? '返回分享清單' : '或者，今晚一起玩'}<ArrowUpRight aria-hidden="true" /></button></header>
+      <header className="consumer-share-heading"><h1>{t("分享")}</h1><div className="consumer-share-tools"><button type="button" className="consumer-room-switch" aria-haspopup="dialog" onClick={openHidden}>管理排除</button><button type="button" data-guide="room-entry" className="consumer-room-switch" aria-expanded={roomMode || showRoomGuide} aria-controls="share-room-panel" aria-haspopup={roomMode ? undefined : 'dialog'} onClick={() => { if (roomMode) setRoomMode(false); else setShowRoomGuide(true); }}>{roomMode ? '返回分享清單' : '或者，今晚一起玩'}<ArrowUpRight aria-hidden="true" /></button></div></header>
       <section hidden={roomMode} className="consumer-steam-share"><SavedShare games={games} />{!games.length && <button className="room-share-explore" onClick={onExplore}>{t("探索遊戲")}<ArrowUpRight aria-hidden="true" /></button>}</section>
       <div id="share-room-panel" hidden={!roomMode}><PlayRoom games={games} suggestions={suggestions} active={roomMode} /></div>
       <AnimatePresence>{showRoomGuide && <ConsumerSheet title="今晚一起玩" onClose={() => setShowRoomGuide(false)}>
@@ -468,6 +507,15 @@ function LibraryView({ games, suggestions, onExplore, initialRoom = false }: { g
           <div className="room-guide-actions"><button type="button" onClick={() => setShowRoomGuide(false)}>先分享清單</button><button type="button" className="room-guide-enter" onClick={() => { setShowRoomGuide(false); setRoomMode(true); }}>好，進去看看<ArrowUpRight aria-hidden="true" /></button></div>
         </div>
       </ConsumerSheet>}</AnimatePresence>
+      <AnimatePresence>{showHidden && <ConsumerSheet glass title="管理排除" onClose={() => setShowHidden(false)}>
+        <div className="consumer-hidden-manager">
+          <p>恢復後，遊戲會重新參與探索與推薦。</p>
+          {hiddenError && <p role="alert" className="consumer-warning">{hiddenError}</p>}
+          {!hiddenError && !Object.keys(hidden).length && <p role="status">目前沒有排除的遊戲。</p>}
+          {!!Object.keys(hidden).length && <button type="button" className="consumer-hidden-restore-all" onClick={() => { if (window.confirm('恢復所有排除與七天略過的遊戲？')) restore(Object.keys(hidden)); }}>全部恢復</button>}
+          <ul>{Object.entries(hidden).map(([id, until]) => <li key={id}><div><a href={`https://store.steampowered.com/app/${id}/`} target="_blank" rel="noopener noreferrer">{names.get(id) ?? `Steam 遊戲 #${id}`}</a><span>{until === null ? '永久排除' : `略過至 ${new Date(until).toLocaleDateString()}`}</span></div><button type="button" onClick={() => restore([id])} aria-label={`恢復 ${names.get(id) ?? id}`}>恢復</button></li>)}</ul>
+        </div>
+      </ConsumerSheet>}</AnimatePresence>
     </section>
   );
 }
@@ -479,7 +527,7 @@ export function ConsumerPreview({ payload, loading, error, onRetry }: { payload:
   const [supportView, setSupportView] = useState<'coffee' | 'free' | null>(null);
   const [initialRoom, setInitialRoom] = useState(() => location.hash !== '#history' && Boolean(new URL(location.href).searchParams.get('room')?.trim()));
   const [activeTab, updateActiveTab] = useState<ConsumerTab>(initialRoom ? 'library' : location.hash === '#history' ? 'saved' : 'discover');
-  const setActiveTab = (tab: ConsumerTab) => { if (location.hash === '#history') { window.history.replaceState(null, '', location.pathname + location.search); window.dispatchEvent(new HashChangeEvent('hashchange')); } setInitialRoom(false); updateActiveTab(tab); };
+  const setActiveTab = (tab: ConsumerTab) => { if (location.hash === '#history') { window.history.replaceState(null, '', location.pathname + location.search); window.dispatchEvent(new HashChangeEvent('hashchange')); } setInitialRoom(false); window.scrollTo({ top: 0, behavior: 'instant' }); updateActiveTab(tab); };
   useEffect(() => { const route = () => { if (location.hash === '#history') { setInitialRoom(false); updateActiveTab('saved'); } }; window.addEventListener('hashchange', route); return () => window.removeEventListener('hashchange', route); }, []);
   const [seenGuides, setSeenGuides] = useState<GuidePage[]>(() => { try { return readGuides(localStorage); } catch { return []; } });
   const showGuide = !initialRoom && !seenGuides.includes(activeTab);
@@ -487,7 +535,7 @@ export function ConsumerPreview({ payload, loading, error, onRetry }: { payload:
     try { rememberGuide(localStorage, activeTab); } catch { /* Storage may be disabled. */ }
     setSeenGuides(current => [...new Set([...current, activeTab])]);
   };
-  useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }); }, [activeTab]);
+  useEffect(() => { if (!showGuide) window.scrollTo({ top: 0, behavior: 'instant' }); }, [activeTab]);
   const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
   const [initialLibrary] = useState(() => { try { return { games: parseLibrary(localStorage.getItem(LIBRARY_KEY)), error: '' }; } catch { return { games: [] as Game[], error: '無法讀取這個瀏覽器的收藏。原資料未刪除，請先匯出備份。' }; } });
   const [saved, setSaved] = useState<Game[]>(initialLibrary.games);
@@ -509,11 +557,9 @@ export function ConsumerPreview({ payload, loading, error, onRetry }: { payload:
   const [exitDirection, setExitDirection] = useState<Decision>('save');
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
-  const [noticeRevision, setNoticeRevision] = useState(0);
-  const [noticePaused, setNoticePaused] = useState(false);
   const [failure, setFailure] = useState('');
   const lastDecision = useRef<string | null>(null);
-  useEffect(() => { if (!notice || noticePaused) return; const timer = window.setTimeout(() => setNotice(''), 4500); return () => window.clearTimeout(timer); }, [notice, noticeRevision, noticePaused]);
+  useEffect(() => { if (!notice) return; const timer = window.setTimeout(() => setNotice(''), 4500); return () => window.clearTimeout(timer); }, [notice]);
   const [blocked, setBlocked] = useState<Set<string>>(() => { try { return new Set(Object.keys(readHidden(localStorage))); } catch { return new Set(); } });
   const [source, setSource] = useState<Source>('popular');
   const [searchGames, setSearchGames] = useState<Game[] | null>(null);
@@ -598,8 +644,6 @@ export function ConsumerPreview({ payload, loading, error, onRetry }: { payload:
     if (!activeGame || lastDecision.current === activeGame.id) return;
     lastDecision.current = activeGame.id;
     setHistory((current) => [...current, { game: activeGame, decision, savedBefore: saved.some((game) => game.id === activeGame.id) }].slice(-50));
-    setNotice(decision === 'save' ? t("已收藏") : t("已略過"));
-    setNoticeRevision(value => value + 1);
     setExitDirection(decision);
     if (decision === 'save') setSaved((current) => current.some((game) => game.id === activeGame.id) ? current : [...current, activeGame]);
     setDismissed((current) => new Set(current).add(activeGame.id));
@@ -624,6 +668,7 @@ export function ConsumerPreview({ payload, loading, error, onRetry }: { payload:
   if (!payload) return null;
 
   const toggleSaved = (game: Game) => setSaved((current) => current.some((item) => item.id === game.id) ? current.filter((item) => item.id !== game.id) : [...current, game]);
+  const topbar = <div className="consumer-topbar"><div className="consumer-brand-lockup"><a href="/" className="consumer-brand" aria-label="Playcision 首頁"><img className="consumer-wordmark" src="/brand/wordmark.png" alt="Playcision" width="770" height="170" draggable={false} /></a><div className="consumer-creator-actions"><a className="consumer-creator" href="https://github.com/bm1016bm-svg" target="_blank" rel="noopener noreferrer" aria-label="作者 bm1016bm-svg 的 GitHub">by @bm1016bm-svg</a><button className="consumer-support-trigger" type="button" onClick={() => setSupportView('coffee')}><Coffee aria-hidden="true" />請我喝咖啡</button><button className="consumer-support-trigger" type="button" onClick={() => setSupportView('free')}><Heart aria-hidden="true" />免費支持</button></div></div><div className="consumer-topbar-tools"><button className="consumer-language-trigger" type="button" onClick={() => setShowLanguages(true)} aria-label={t("語言")}><Globe aria-hidden="true" /><span>{LANGUAGES.find(item => item.code === locale)?.name}</span></button><button data-guide="filter-entry" className={`consumer-icon-button consumer-filter-trigger${hasFilters ? ' has-filters' : ''}`} onClick={() => setShowFilters(true)} aria-label={t("篩選遊戲")}><FunnelSimple aria-hidden="true" />{hasFilters && <i />}</button></div></div>;
 
   return (
     <main className="consumer-stage" id="main-content" tabIndex={-1}>
@@ -631,7 +676,7 @@ export function ConsumerPreview({ payload, loading, error, onRetry }: { payload:
       <section className={`consumer-app${activeTab === "discover" ? " consumer-app--discover" : ""}${activeTab === "saved" ? " consumer-app--saved" : ""}${activeTab === "recommended" ? " consumer-app--recommended" : ""}`} aria-label="Playcision 遊戲探索">
         <div className="consumer-content" inert={showGuide || showFilters || showLanguages || !!supportView || !!details}>
         {storageError && <p role="alert" className="consumer-warning">{storageError}</p>}
-        <div className="consumer-topbar"><div className="consumer-brand-lockup"><a href="/" className="consumer-brand" aria-label="Playcision 首頁"><img className="consumer-wordmark" src="/brand/wordmark.png" alt="Playcision" width="770" height="170" draggable={false} /></a><div className="consumer-creator-actions"><a className="consumer-creator" href="https://github.com/bm1016bm-svg" target="_blank" rel="noopener noreferrer" aria-label="作者 bm1016bm-svg 的 GitHub">by @bm1016bm-svg</a><button className="consumer-support-trigger" type="button" onClick={() => setSupportView('coffee')}><Coffee aria-hidden="true" />請我喝咖啡</button><button className="consumer-support-trigger" type="button" onClick={() => setSupportView('free')}><Heart aria-hidden="true" />免費支持</button></div></div><div className="consumer-topbar-tools"><button className="consumer-language-trigger" type="button" onClick={() => setShowLanguages(true)} aria-label={t("語言")}><Globe aria-hidden="true" /><span>{LANGUAGES.find(item => item.code === locale)?.name}</span></button><button className={`consumer-icon-button consumer-filter-trigger${hasFilters ? ' has-filters' : ''}`} onClick={() => setShowFilters(true)} aria-label={t("篩選遊戲")}><FunnelSimple aria-hidden="true" />{hasFilters && <i />}</button></div></div>
+        {activeTab !== 'recommended' && topbar}
         {activeTab === 'discover' && <>
           <div className="consumer-discover-main">
             <div className="consumer-deck-progress">
@@ -651,20 +696,20 @@ export function ConsumerPreview({ payload, loading, error, onRetry }: { payload:
               {!activeGame && !searchLoading && !ai.pending && <div className="consumer-empty-view consumer-empty-view--pool" role="status"><SlidersHorizontal aria-hidden="true" /><h2>{searchLoading ? '正在尋找遊戲…' : searchError || (searchMore ? '繼續看看下一批遊戲' : t("沒有符合條件的遊戲"))}</h2>{!searchLoading && (searchError ? <button type="button" onClick={() => setSearchRevision(value => value + 1)}>重新查詢</button> : searchMore ? <button type="button" onClick={() => setSearchOffset(value => value + 50)}>載入更多遊戲</button> : <button type="button" onClick={() => { setSource('popular'); setFilters(DEFAULT_FILTERS); setDismissed(new Set()); setHistory([]); lastDecision.current = null; }}>{t("清除篩選並重設")}</button>)}</div>}
             </div>
           </div>
-          <div className="consumer-actions" aria-label="遊戲操作"><button className="consumer-undo" aria-label={t("復原上一個決定")} onClick={undo} disabled={!history.length}><ArrowCounterClockwise aria-hidden="true" /></button>
+          <div className="consumer-actions" data-guide="discover-actions" aria-label="遊戲操作"><button className="consumer-undo" aria-label={t("復原上一個決定")} onClick={undo} disabled={!history.length}><ArrowCounterClockwise aria-hidden="true" /></button>
             <button type="button" className="consumer-action-skip" aria-keyshortcuts="ArrowLeft" title={`${t('略過')} (←)`} onClick={() => decide('skip')} disabled={!activeGame}><X weight="bold" aria-hidden="true" /><span>{t("略過")}</span></button>
             <button type="button" className="consumer-action-save" aria-keyshortcuts="ArrowRight" title={`${t('收藏')} (→)`} onClick={() => decide('save')} disabled={!activeGame}><Heart weight="fill" aria-hidden="true" /><span>{t("加入收藏")}</span></button>
 
           </div>
         </>}
-        {activeTab === 'recommended' && <RecommendedView excludeAi={filters.ai === 'exclude'} excluded={new Set([...blocked, ...(payload.blockedAppIds ?? [])])} sections={[{ title: "熱門暢銷", games: payload.popular ?? [] }, { title: "新品", games: payload.digest.discover }, { title: "折扣", games: payload.digest.deals }].map(section => ({ ...section, games: uniqueGames(section.games).filter(game => !blocked.has(game.id) && !payload.blockedAppIds?.includes(game.id)) }))} saved={saved} language={locale} onToggle={toggleSaved} />}
+        {activeTab === 'recommended' && <RecommendedView header={topbar} excludeAi={filters.ai === 'exclude'} excluded={new Set([...blocked, ...(payload.blockedAppIds ?? [])])} sections={[{ title: "熱門暢銷", games: payload.popular ?? [] }, { title: "新品", games: payload.digest.discover }, { title: "折扣", games: payload.digest.deals }].map(section => ({ ...section, games: uniqueGames(section.games).filter(game => !blocked.has(game.id) && !payload.blockedAppIds?.includes(game.id)) }))} saved={saved} language={locale} onToggle={toggleSaved} />}
         {activeTab === 'saved' && <SavedView onRemove={id => setSaved(current => current.filter(game => game.id !== id))} onClear={() => setSaved([])} games={saved} language={locale} seed={payload.digest.roll?.seed ?? payload.digest.generatedAt} onOpen={(game) => { setFailure(''); setDetails(game); }} onExplore={() => setActiveTab('discover')} />}
-        {activeTab === 'library' && <LibraryView initialRoom={initialRoom} games={saved} suggestions={payload.popular ?? payload.digest.discover} onExplore={() => setActiveTab('discover')} />}
+        {activeTab === 'library' && <LibraryView initialRoom={initialRoom} games={saved} suggestions={uniqueGames([...(payload.popular ?? []), ...payload.digest.discover, ...payload.digest.deals, ...(searchGames ?? [])])} onExplore={() => setActiveTab('discover')} onRestore={(next, ids) => { setBlocked(new Set(Object.keys(next))); setDismissed(current => new Set([...current].filter(id => !ids.includes(id)))); }} />}
         <ConsumerBottomNav active={activeTab} savedCount={saved.length} onChange={setActiveTab} />
         </div>
-        {notice && <div className="consumer-toast" role="status" onMouseEnter={() => setNoticePaused(true)} onMouseLeave={() => setNoticePaused(false)} onFocus={() => setNoticePaused(true)} onBlur={() => setNoticePaused(false)}><Check aria-hidden="true" />{notice}{notice === t("已收藏") && <><span aria-hidden="true">·</span><button onClick={() => { setActiveTab('saved'); setNotice(''); setNoticePaused(false); }}>{t("查看清單")}</button></>}</div>}
+        {notice && <div className="consumer-toast" role="status"><Check aria-hidden="true" />{notice}</div>}
         <AnimatePresence>{showGuide && <PageGuide key={activeTab} page={activeTab} onClose={dismissGuide} />}</AnimatePresence>
-        <AnimatePresence>{supportView && <ConsumerSheet title={supportView === 'coffee' ? '請我喝咖啡' : '免費支持'} onClose={() => setSupportView(null)}><SupportPanel freeOnly={supportView === 'free'} /></ConsumerSheet>}</AnimatePresence>
+        <AnimatePresence>{supportView && <ConsumerSheet glass title={supportView === 'coffee' ? '請我喝咖啡' : '免費支持'} onClose={() => setSupportView(null)}><SupportPanel freeOnly={supportView === 'free'} /></ConsumerSheet>}</AnimatePresence>
         <AnimatePresence>{showLanguages && <ConsumerSheet title={t("語言")} onClose={() => setShowLanguages(false)}><div className="consumer-language-options">{LANGUAGES.map(item => <button type="button" lang={item.code} key={item.code} aria-pressed={locale === item.code} onClick={() => { if (isLocale(item.code)) setLocale(item.code); setNotice(''); setShowLanguages(false); }}><span>{item.name}</span>{locale === item.code && <Check aria-hidden="true" />}</button>)}</div></ConsumerSheet>}</AnimatePresence>
         <AnimatePresence>{showFilters && <FilterSheet filters={filters} source={source} genres={genres} loading={loading} onRefresh={onRetry} onChange={(next, nextSource) => { setFilters(next); setSource(nextSource); setSearchOffset(0); setSearchGames(null); setSearchRevision(value => value + 1); setDismissed(new Set()); setHistory([]); lastDecision.current = null; setActiveTab('discover'); }} onClose={() => setShowFilters(false)} />}</AnimatePresence>
         <AnimatePresence>{details && <ReviewOverlay key={details.id} game={details} saved={saved.some((game) => game.id === details.id)} onToggleSaved={() => toggleSaved(details)} busy={busy} failure={failure} onPreference={(action) => void persistPreference(action)} onClose={() => setDetails(null)} />}</AnimatePresence>

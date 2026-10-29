@@ -10,7 +10,7 @@ import { createLatestPreloader } from './latest-preloader';
 
 if (typeof window !== 'undefined') gsap.registerPlugin(ScrollTrigger);
 export type TimelineItem = { id: string; label: string; content: ReactNode; prepare?: () => Promise<unknown> };
-export type TimelineProps = { items: TimelineItem[]; label: string; onNearEnd?: (() => void) | undefined };
+export type TimelineProps = { items: TimelineItem[]; label: string; onNearEnd?: (() => void) | undefined; connectFromAbove?: boolean };
 const JOURNEY_QUERY = '(min-width: 601px) and (prefers-reduced-motion: no-preference)';
 const subscribe = (callback: () => void) => {
   const query = window.matchMedia(JOURNEY_QUERY);
@@ -19,13 +19,14 @@ const subscribe = (callback: () => void) => {
 };
 const snapshot = () => window.matchMedia(JOURNEY_QUERY).matches;
 
-export default function Timeline({ items, label, onNearEnd }: TimelineProps) {
+export default function Timeline({ items, label, onNearEnd, connectFromAbove = false }: TimelineProps) {
   const host = useRef<HTMLElement>(null);
   const stage = useRef<HTMLDivElement>(null);
   const scene = useRef<HTMLDivElement>(null);
   const counter = useRef<HTMLOutputElement>(null);
   const circuit = useRef<SVGGElement>(null);
   const spectrum = useRef<SVGLinearGradientElement>(null);
+  const entryLine = useRef<HTMLSpanElement>(null);
   const glowId = `journey-gloss-${useId().replace(/:/g, "")}`;
   const scrollTrigger = useRef<ScrollTrigger | null>(null);
   const resumePosition = useRef(0);
@@ -76,7 +77,7 @@ export default function Timeline({ items, label, onNearEnd }: TimelineProps) {
   };
 
   useLayoutEffect(() => {
-    const section = host.current, viewport = stage.current, world = scene.current;
+    const section = host.current, viewport = stage.current, world = scene.current, incoming = entryLine.current;
     if (!animated || !section || !viewport || !world) return;
 
     const resume = Math.min(resumePosition.current, points.length - 1);
@@ -85,6 +86,11 @@ export default function Timeline({ items, label, onNearEnd }: TimelineProps) {
     const draw = () => {
       const camera = sampleRoute(points, cursor.position);
       world.style.transform = `translate3d(${viewport.clientWidth / 2 - camera.x}px, ${viewport.clientHeight / 2 - camera.y}px, 0)`;
+      if (entryLine.current) {
+        // The first card masks the end of this line. Follow that card while it
+        // moves upward; do not leave a loose segment or reappear on later turns.
+        entryLine.current.style.height = `${camera.index === 0 ? Math.max(0, viewport.clientHeight / 2 - camera.y) : 0}px`;
+      }
       if (circuit.current) {
         const a = points[camera.index], b = points[camera.index + 1];
         circuit.current.style.opacity = b ? '1' : '0';
@@ -126,7 +132,12 @@ export default function Timeline({ items, label, onNearEnd }: TimelineProps) {
     }, section);
     const observer = new ResizeObserver(draw);
     observer.observe(viewport);
-    return () => { resumePosition.current = cursor.position; observer.disconnect(); context.revert(); scrollTrigger.current = null; };
+    return () => {
+      resumePosition.current = cursor.position; observer.disconnect(); context.revert(); scrollTrigger.current = null;
+      // GSAP owns cursor, but draw() writes these styles itself. Return the
+      // scene to CSS when switching to the mobile / reduced-motion list.
+      world.style.removeProperty('transform'); incoming?.style.removeProperty('height');
+    };
   }, [animated, signature, points]);
 
   const jump = (index: number) => {
@@ -143,6 +154,7 @@ export default function Timeline({ items, label, onNearEnd }: TimelineProps) {
       if (!animated || event.target !== event.currentTarget || !['ArrowDown', 'ArrowUp'].includes(event.key)) return;
       event.preventDefault(); jump(Math.max(0, Math.min(items.length - 1, activeRef.current + (event.key === 'ArrowDown' ? 1 : -1))));
     }}>
+      {connectFromAbove && <span ref={entryLine} className="game-timeline-entry" aria-hidden="true" />}
       <div ref={scene} className="game-timeline-scene">
         {animated && <svg className="game-journey-line" aria-hidden="true" style={{ left: bounds.x, top: bounds.y, width: bounds.right - bounds.x, height: bounds.bottom - bounds.y }} viewBox={`${bounds.x} ${bounds.y} ${bounds.right - bounds.x} ${bounds.bottom - bounds.y}`}>
           <defs><linearGradient ref={spectrum} id={glowId} gradientUnits="userSpaceOnUse">

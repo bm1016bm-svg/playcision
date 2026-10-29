@@ -1,0 +1,2 @@
+# Public local preview. No invitation, account, or signing secret is required.
+APP_ORIGIN="http://127.0.0.1:4174"

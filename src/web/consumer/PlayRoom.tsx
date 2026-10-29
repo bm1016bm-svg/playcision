@@ -4,6 +4,7 @@ import type { Game } from '../types';
 import type { RoomAction, RoomView } from '../../rooms/engine';
 import './play-room.css';
 import { useArtwork } from './artwork';
+import { forgetRoomMembership, parseRoomSnapshot, readRoomMembership, rememberRoomMembership, resumeRoom, RoomResumeError } from './room-resume';
 
 function RoomArtwork({ id }: { id: string }) {
   const artwork = useArtwork(id);
@@ -11,6 +12,7 @@ function RoomArtwork({ id }: { id: string }) {
 }
 
 const api = (import.meta.env.VITE_ROOM_API as string | undefined)?.replace(/\/$/, '') ?? '';
+function roomSession() { try { return sessionStorage; } catch { return undefined; } }
 function credential() {
   try {
     const existing = sessionStorage.getItem('playcision.room-token');
@@ -26,12 +28,18 @@ export function PlayRoom({ games, suggestions, active = true }: { games: Game[];
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [syncError, setSyncError] = useState('');
+  const [restoring, setRestoring] = useState(() => { const storage = roomSession(); return !!(storage && readRoomMembership(storage, roomId)); });
+  const [restoreFailed, setRestoreFailed] = useState(false);
+  const [restoreAttempt, setRestoreAttempt] = useState(0);
   const [copied, setCopied] = useState(false);
   const [clock, setClock] = useState(Date.now());
   const offset = useRef(0);
   const latest = useRef(0);
+  const actionRequest = useRef<AbortController | null>(null);
+  useEffect(() => () => actionRequest.current?.abort(), []);
   const accept = (next: RoomView) => {
     if (next.serverNow < latest.current) return;
+    const storage = roomSession(); if (storage) rememberRoomMembership(storage, next);
     latest.current = next.serverNow; offset.current = next.serverNow - Date.now(); setRoom(next); setClock(Date.now());
   };
   async function request(path: string, action?: unknown, signal?: AbortSignal) {
@@ -39,9 +47,26 @@ export function PlayRoom({ games, suggestions, active = true }: { games: Game[];
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       ...(action ? { body: JSON.stringify(action) } : {}), signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(12000)]) : AbortSignal.timeout(12000) });
     const value = await response.json();
+    signal?.throwIfAborted();
     if (!response.ok) throw new Error(value.error ?? '房間暫時無法連線');
     return value as RoomView;
   }
+  useEffect(() => {
+    if (!active || !roomId || room) return;
+    const storage = roomSession();
+    if (!storage || !readRoomMembership(storage, roomId)) { setRestoring(false); return; }
+    const controller = new AbortController();
+    setRestoring(true); setRestoreFailed(false); setError('');
+    void resumeRoom({ id: roomId, token, storage, signal: controller.signal, api }).then(next => {
+      if (!controller.signal.aborted && next) accept(next);
+    }).catch(caught => {
+      if (controller.signal.aborted) return;
+      const retry = !(caught instanceof RoomResumeError && [400, 401, 403, 404, 410].includes(caught.status));
+      setRestoreFailed(retry);
+      setError(retry ? '暫時無法恢復牌桌，座位資料仍保留，請重試連線。' : caught instanceof Error ? caught.message : '房間已到期，請改開新房間。');
+    }).finally(() => { if (!controller.signal.aborted) setRestoring(false); });
+    return () => controller.abort();
+  }, [active, roomId, Boolean(room), token, restoreAttempt]);
   useEffect(() => {
     if (!active || !roomId || !room) return;
     let stopped = false; let failures = 0; let finished = false;
@@ -52,10 +77,11 @@ export function PlayRoom({ games, suggestions, active = true }: { games: Game[];
       const url = new URL(`${api}/api/rooms/${roomId}/live`, location.href);
       url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
       const current = new WebSocket(url); socket = current;
-      current.onopen = () => current.send(JSON.stringify({ token }));
+      current.onopen = () => { if (stopped || socket !== current) current.close(); else current.send(JSON.stringify({ token })); };
       current.onmessage = event => {
         try {
-          const value = JSON.parse(String(event.data)) as RoomView;
+          const value = parseRoomSnapshot(JSON.parse(String(event.data)));
+          if (value.id !== roomId) throw new Error('wrong room');
           if (!stopped && socket === current) {
             failures = 0; accept(value); setSyncError('');
             finished = value.phase === 'finished';
@@ -65,8 +91,13 @@ export function PlayRoom({ games, suggestions, active = true }: { games: Game[];
       current.onerror = () => current.close();
       current.onclose = event => {
         if (stopped || finished || document.hidden || socket !== current) return;
-        setSyncError(event.code === 1008 ? '房間已到期或連線無效，請重新加入。' : '同步中斷，正在重新連線');
-        if (event.code === 1008) return;
+        if (event.code === 1008) {
+          const storage = roomSession(); if (storage) forgetRoomMembership(storage, roomId);
+          setRoom(null); latest.current = 0; setRestoreFailed(false); setSyncError('');
+          setError('房間已到期或座位已失效，請重新加入或改開新房間。');
+          return;
+        }
+        setSyncError('同步中斷，正在重新連線');
         timer = setTimeout(connect, Math.min(15000, 1000 * 2 ** Math.min(failures++, 4)));
       };
     };
@@ -85,17 +116,20 @@ export function PlayRoom({ games, suggestions, active = true }: { games: Game[];
     return () => clearInterval(timer);
   }, [active, room?.startedAt, room?.phase]);
   async function act(action: RoomAction | { type: 'create'; name: string }) {
-    if (busy) return;
+    if (busy || restoring) return;
+    const controller = new AbortController(); actionRequest.current = controller;
     setBusy(true); setError('');
     try {
-      const next = await request(action.type === 'create' ? '' : `/${roomId}`, action);
+      const result = await request(action.type === 'create' ? '' : `/${roomId}`, action, controller.signal);
       if (action.type === 'leave') { exit(); return; }
+      const next = parseRoomSnapshot(result);
       accept(next); setRoomId(next.id);
+      setRestoreFailed(false);
       const url = new URL(location.href); url.searchParams.set('room', next.id); history.replaceState(null, '', url);
-    } catch (e) { setError(e instanceof Error ? e.message : '操作失敗，請再試一次'); }
-    finally { setBusy(false); }
+    } catch (e) { if (!controller.signal.aborted) setError(e instanceof Error ? e.message : '操作失敗，請再試一次'); }
+    finally { if (actionRequest.current === controller) { actionRequest.current = null; if (!controller.signal.aborted) setBusy(false); } }
   }
-  function exit() { setError(''); setSyncError(''); setRoom(null); setRoomId(''); latest.current = 0; const url = new URL(location.href); url.searchParams.delete('room'); history.replaceState(null, '', url); }
+  function exit() { const storage = roomSession(); if (storage) forgetRoomMembership(storage, roomId); setError(''); setSyncError(''); setRestoreFailed(false); setRestoring(false); setCopied(false); setRoom(null); setRoomId(''); latest.current = 0; const url = new URL(location.href); url.searchParams.delete('room'); history.replaceState(null, '', url); }
   const elapsed = room?.startedAt == null ? 0 : clock + offset.current - room.startedAt;
   const stage = !room || room.startedAt === null ? 'waiting' : elapsed < 40000 ? 'proposing' : elapsed < 60000 ? 'voting' : 'finished';
   const seconds = Math.max(0, Math.ceil(((stage === 'proposing' ? 40000 : 60000) - elapsed) / 1000));
@@ -107,7 +141,7 @@ export function PlayRoom({ games, suggestions, active = true }: { games: Game[];
   return <section className="play-room" aria-labelledby="play-room-title">
     <header className="room-heading"><div><h2 id="play-room-title">今晚一起玩</h2></div><span className="room-capacity">{room ? `${room.players.length} / 4 人` : '2–4 人'}</span></header>
     {!room && <p className="room-intro">邀朋友一起出牌，選出今晚都想玩的遊戲。</p>}
-    {!room ? <div className="room-entry"><form onSubmit={e => { e.preventDefault(); void act(roomId ? { type: 'join', name } : { type: 'create', name }); }}><label htmlFor="room-name">你的暱稱</label><div><input id="room-name" value={name} onChange={e => setName(e.target.value)} maxLength={24} placeholder="朋友怎麼稱呼你？" required /><button disabled={busy || !name.trim()}>{roomId ? '加入牌桌' : '開一桌'}<ArrowUpRight /></button></div></form>{roomId && <button className="room-text-button" onClick={exit}>改開新房間</button>}</div> : <>
+    {!room ? <div className="room-entry">{restoring ? <p role="status">正在恢復你的牌桌…</p> : <form onSubmit={e => { e.preventDefault(); void act(roomId ? { type: 'join', name } : { type: 'create', name }); }}><label htmlFor="room-name">你的暱稱</label><div><input id="room-name" value={name} onChange={e => setName(e.target.value)} maxLength={24} placeholder="朋友怎麼稱呼你？" required /><button disabled={busy || !name.trim()}>{roomId ? '加入牌桌' : '開一桌'}<ArrowUpRight /></button></div></form>}{restoreFailed && <button className="room-text-button" onClick={() => setRestoreAttempt(value => value + 1)}>重試連線</button>}{roomId && <button className="room-text-button" disabled={busy} onClick={exit}>改開新房間</button>}</div> : <>
       <div className="room-toolbar"><span>{stage === 'waiting' ? '等朋友入座' : stage === 'proposing' ? '01 / 把想玩的放上桌' : stage === 'voting' ? '02 / 選出你願意一起玩的遊戲' : '03 / 今晚的選擇'}</span>{stage === 'proposing' || stage === 'voting' ? <strong className="room-clock" role="timer">{seconds.toString().padStart(2, '0')}<small>秒</small></strong> : <button className="room-text-button" onClick={async () => { try { await navigator.clipboard.writeText(location.href); setCopied(true); } catch { setError('無法複製，請複製瀏覽器網址邀請朋友'); } }}>{copied ? <Check /> : <Copy />}{copied ? '已複製邀請' : '邀請朋友'}</button>}</div>
       <div className="room-arena">
       <div className="room-seats">{seats.map((p, i) => <div className={`room-seat room-seat--${i} ${p ? 'occupied' : ''} ${p?.id === room.me ? 'is-me' : ''}`} key={i}><span className="room-seat-avatar" aria-hidden="true">{p ? Array.from(p.name)[0] : <Plus />}{p?.ready && <Check className="room-ready-mark" />}</span><div><strong>{p?.name ?? '空位'}</strong><small>{p ? `${p.id === room.me ? '你 · ' : p.id === room.host ? '房主 · ' : ''}${p.ready ? '已準備' : '準備中'}` : '等待朋友'}</small></div></div>)}</div>

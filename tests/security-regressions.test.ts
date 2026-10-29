@@ -148,7 +148,7 @@ describe('upstream resource limits', () => {
   });
 });
 
-it('keeps the undeployed Worker fail-closed before any namespace allocation', async () => {
+it('keeps an unconfigured Worker fail-closed before any namespace allocation', async () => {
   const idFromName = vi.fn(); const get = vi.fn(); const env = { APP_ORIGIN: 'https://beta.example.com', ROOMS: { idFromName, get } };
   for (const method of ['GET', 'POST', 'OPTIONS']) {
     const response = await worker.fetch(new Request('https://worker.example/api/rooms', { method, headers: { Origin: env.APP_ORIGIN, Authorization: `Bearer ${randomUUID()}` } }), env);

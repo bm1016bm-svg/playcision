@@ -40,3 +40,25 @@
 4. 合併相同公開標籤／圖文查詢，避免每種新篩選都重新查標籤。這部分尚未納入候選實驗。
 
 未量測真實 Steam 延遲、429、完整評論路徑、圖片下載／解碼、瀏覽器 FPS、TLS/CDN、Cloudflare isolate、長時間穩態或惡意流量。每種情境只執行一輪；資料支持辨識目前的佇列與快取問題，不支持宣稱可承載多少真實同時在線玩家。
+
+## 2026-10-28 共用配額與過載驗證
+
+執行 `npm run bench:capacity`，原始報告寫入 `.playcision/benchmarks/server-capacity.json`（不進 Git）。使用真實 `AppCoordinator`、catalog、AI HTML parser，注入會計數的記憶體 storage 和每次延遲 30ms 的合成 Steam 回應。不發出任何 Steam 或正式 Cloudflare 請求，也不讀取使用者收藏。
+
+2026-10-28 06:45 UTC、Node v24.13.0 的單輪結果：
+
+| 情境 | 成功 | 暫拒 HTTP 503 | 合成 Steam 呼叫 | storage.put 呼叫 | 成功回應 p95 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 128 筆相同、已快取的 AI 查詢同時進入 | 128 | 0 | 0 | 11 | 3.98ms |
+| 20 筆不同、未快取的 AI 查詢同時進入 | 20 | 0 | 20 | 8 | 6,733ms |
+| 80 筆不同、未快取的 AI 查詢同時進入 | 26 | 54 | 26 | 12 | 8,841ms |
+
+最後再次查詢已有快取的遊戲，回應 200。暫拒數單列，p95 只計算成功請求，不能以快速拒絕充當效能改善。
+
+舊路徑每筆 API 都執行一次 `storage.put('ledger', ...)`，因此 128 筆對應 128 次寫入是依舊原始碼計算的操作數，並非重跑舊版本取得的延遲。現版本實測 11 次，操作數減少 `(128 - 11) / 128 × 100 = 91.40625%`。這個比例只適用本情境；零星流量、分鐘切換和重啟的結果不同。storage.put 呼叫數不是 Cloudflare 實際計費的 SQL 列寫入數。
+
+此程式直接呼叫程序內的 coordinator，沒有量測 Worker 入口、真實 HTTP/TLS、實體資料庫、CDN、正式 workerd CPU、真實 Steam 限流或瀏覽器。因此這些毫秒數不能當成上線延遲，也不能把請求數當成同時在線玩家數。Cloudflare 本機 runtime 的公開入口、持久配額及 WebSocket 另由 `npm run cloud:smoke` 驗證。
+
+回歸測試另驗證：128 個瀏覽器訂閱共用一次 transport；取消一個不影響其他訂閱者，全部取消會中止 transport；過期、失敗與中止不污染快取；digest 與三個探索初始來源合併後只發出三次搜尋及一次標籤查詢；Steam 429 冷卻跨通道生效；每日／每分鐘配額與出站配額不因重啟而增加。
+
+減載版本驗證：`npm run check` 的 43 個測試檔、265 個測試全部通過，型別檢查與正式建置成功；`cloud:bundle` 和 `cloud:smoke` 通過。重啟的是 `127.0.0.1:4174` 的本機 Wrangler/workerd，未部署正式 Cloudflare。該次實際 Steam 檢查的健康狀態、探索、探索重訪、推薦與 AI API 均回 200。記錄在 `.playcision/preview-capacity-smoke.json`，它是移除邀請碼之前的歷史樣本；目前公開網頁不再需要登入 Cookie，一般 API 不再因未登入回 401，房間 API 仍驗證成員憑證。這些 API 檢查不代表已完成瀏覽器點按、手機真機或外網容量驗收。

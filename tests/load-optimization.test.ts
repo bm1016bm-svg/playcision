@@ -71,3 +71,64 @@ it('never caches failures or canceled results', async () => {
   await expect(bad('a', 'zh-TW', new AbortController().signal)).rejects.toThrow('offline');
   expect(fail).toHaveBeenCalledTimes(2);
 });
+
+it('coalesces 128 concurrent subscribers without allowing one cancellation to cancel the others', async () => {
+  let finish!: (value: string) => void;
+  let transportSignal!: AbortSignal;
+  const fetchPage = vi.fn((_url: string, signal: AbortSignal) => {
+    transportSignal = signal;
+    return new Promise<string>(resolve => { finish = resolve; });
+  });
+  const load = createDiscoveryCache(fetchPage);
+  const controllers = Array.from({ length: 128 }, () => new AbortController());
+  const requests = controllers.map(controller => load('same', 'zh-TW', controller.signal));
+  const outcomes = Promise.allSettled(requests);
+  await Promise.resolve();
+  controllers[0]!.abort();
+  expect(transportSignal.aborted).toBe(false);
+  finish('games');
+  const settled = await outcomes;
+  expect(settled.filter(result => result.status === 'fulfilled')).toHaveLength(127);
+  expect(settled[0]!.status).toBe('rejected');
+  expect(fetchPage).toHaveBeenCalledTimes(1);
+  await expect(load('same', 'zh-TW', new AbortController().signal)).resolves.toBe('games');
+  expect(fetchPage).toHaveBeenCalledTimes(1);
+});
+
+it('cancels unused transport and prevents a late aborted load from replacing a newer result', async () => {
+  const first = new AbortController();
+  let finish!: (value: string) => void;
+  let transportSignal!: AbortSignal;
+  const fetchPage = vi.fn((_url: string, signal: AbortSignal) => {
+    transportSignal = signal;
+    return new Promise<string>(resolve => { finish = resolve; });
+  }).mockImplementationOnce((_url, signal) => {
+    transportSignal = signal;
+    return new Promise<string>(resolve => { finish = resolve; });
+  }).mockResolvedValueOnce('new');
+  const load = createDiscoveryCache(fetchPage);
+  const abandoned = load('same', 'zh-TW', first.signal);
+  const rejected = expect(abandoned).rejects.toThrow();
+  await Promise.resolve(); first.abort(); await rejected;
+  expect(transportSignal.aborted).toBe(true);
+  await expect(load('same', 'zh-TW', new AbortController().signal)).resolves.toBe('new');
+  finish('old');
+  for (let i = 0; i < 8; i++) await Promise.resolve();
+  await expect(load('same', 'zh-TW', new AbortController().signal)).resolves.toBe('new');
+  expect(fetchPage).toHaveBeenCalledTimes(2);
+});
+
+it('bounds distinct in-flight browser queries and releases all canceled slots', async () => {
+  const finishers: (() => void)[] = [];
+  const load = createDiscoveryCache(async () => new Promise<string>(resolve => finishers.push(() => resolve('ok'))));
+  const controllers = Array.from({ length: 20 }, () => new AbortController());
+  const work = controllers.map((controller, index) => load(String(index), 'en', controller.signal));
+  const settled = Promise.allSettled(work);
+  await expect(load('overflow', 'en', new AbortController().signal)).rejects.toThrow('遊戲載入中');
+  controllers.forEach(controller => controller.abort());
+  await settled;
+  finishers.forEach(finish => finish());
+  const retried = load('overflow', 'en', new AbortController().signal);
+  await Promise.resolve(); finishers.at(-1)!();
+  await expect(retried).resolves.toBe('ok');
+});

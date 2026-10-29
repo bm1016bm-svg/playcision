@@ -22,6 +22,17 @@ export function parseReviews(payload: unknown): { summary: ReviewSummary | null;
   });
   return { summary: stats, reviews };
 }
+/** IUserReviewsService returns a Web API envelope; HTTP status is checked by the transport. */
+export function parseAppReviews(payload: unknown): { summary: ReviewSummary | null; reviews: PlayerReview[] } {
+  const root = record(record(payload).response);
+  const page = record(root.query_summary);
+  // Steam omits the repeated reviews field on a successful empty page. An
+  // explicit zero page count distinguishes that case from a malformed response.
+  const reviews = root.reviews === undefined && page.num_reviews === 0 ? [] : root.reviews;
+  if ('success' in root || !Array.isArray(reviews) || reviews.length > 100) throw schemaDrift('reviews', 'Missing GetAppReviews response');
+  if ('num_reviews' in page && count(page.num_reviews) !== reviews.length) throw schemaDrift('reviews', 'Inconsistent review page count');
+  return parseReviews({ ...root, reviews, success: 1 });
+}
 export function parseRecentReviews(payload: unknown): { summary: ReviewSummary; from: number; to: number } {
   const root = record(payload), result = record(root.results);
   if (root.success !== 1 || !Array.isArray(result.recent) || result.recent.length === 0 || result.recent.length > 31) throw schemaDrift('review histogram', 'Missing daily recent review buckets');

@@ -80,4 +80,5 @@
  .history-game-list strong { font-size:13px; }
  .history-folder-heading h3 { flex-basis:calc(100% - 64px); font-size:20px; }
 }
+@media(max-width:360px) { .history-drop-dock { grid-template-columns:1fr; } }
 @media(prefers-reduced-motion:reduce) { .history-drag-layer *,.history-page { animation:none!important; transition:none!important; } }

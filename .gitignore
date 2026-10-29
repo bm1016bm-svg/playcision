@@ -13,3 +13,7 @@ coverage/
 beta-data/
 backups/
 artifacts/
+.wrangler/
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
