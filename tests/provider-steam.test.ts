@@ -425,6 +425,17 @@ describe('filtered discovery searches', () => {
     await provider(fake.fetch).instance.getDiscoveryPage(query(), { source: 'deals', genre: 'all', platform: 'all', price: 'all', players: 'all', earlyAccess: 'all', offset: 50 });
     expect(fake.routes).toHaveLength(0);
   });
+  test('continues ordinary discovery beyond the old one-thousand-result limit', async () => {
+    const page = await fixture('search-new-global.json') as Record<string, unknown>;
+    const fake = fakeSteamFetch([
+      pathname('/tagdata/populartags/english', await fixture('tags.json')),
+      searchRoute({ ...page, total_count: 20_000 }, url => url.searchParams.get('start') === '1500'),
+    ]);
+    const result = await provider(fake.fetch).instance.getDiscoveryPage(query(), { source: 'popular', genre: 'all', platform: 'all', price: 'all', players: 'all', earlyAccess: 'all', offset: 1500 });
+    expect(result.hasMore).toBe(true);
+    expect(result.nextOffset).toBe(1550);
+    expect(fake.routes).toHaveLength(0);
+  });
   test('does not silently substitute the global chart for an unknown genre', async () => {
     const fake = fakeSteamFetch([pathname('/tagdata/populartags/english', await fixture('tags.json'))]);
     await expect(provider(fake.fetch).instance.getDiscoveryPage(query(), { source: 'popular', genre: 'Unknown tag', platform: 'all', price: 'all', players: 'all', earlyAccess: 'all', offset: 0 })).rejects.toThrow('無法辨識');

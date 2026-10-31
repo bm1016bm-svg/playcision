@@ -29,5 +29,5 @@ export function useAiFilter<T extends { id: string }>(games: T[], enabled: boole
     const state = view.peek(game.id);
     return state === 'not-observed' || state === 'unknown';
   }) : games;
-  return { games: visible, pending: unchecked.length > 0, unknown: enabled && visible.some(game => view.peek(game.id) === 'unknown') };
+  return { games: visible, pending: unchecked.length > 0, unchecked: unchecked.length, unknown: enabled && visible.some(game => view.peek(game.id) === 'unknown') };
 }

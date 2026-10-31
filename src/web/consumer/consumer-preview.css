@@ -68,10 +68,10 @@
 .consumer-drag-label { position: absolute; top: 16px; display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 12px; border: 1px solid currentColor; border-radius: 12px; background: #111c2ee6; font-weight: 550; }
 .consumer-drag-label--skip { left: 16px; color: #ffe0dd; }
 .consumer-drag-label--save { right: 16px; color: var(--consumer-accent); }
-.consumer-actions { display: grid; grid-template-columns: 48px 1fr 1fr; gap: 12px; width: min(100%, 640px); margin: 30px auto 24px; }
+.consumer-actions { display: grid; grid-template-columns: 112px 1fr 1fr; gap: 12px; width: min(100%, 640px); margin: 30px auto 24px; }
 .consumer-actions > button { display: flex; align-items: center; justify-content: center; gap: 9px; min-height: 54px; border: 1px solid #ffffff30; border-radius: 16px; background: var(--consumer-glass); box-shadow: inset 0 1px #ffffff14; color: var(--consumer-text); font-weight: 550; }
 .consumer-actions svg { width: 21px; height: 21px; }
-.consumer-actions .consumer-undo { background: #ffffff06; box-shadow: none; }
+.consumer-actions .consumer-undo { border-color: #a4d9f580; background: #203849ed; color: #f0faff; box-shadow: inset 0 1px #d5efff30; font-weight: 600; }
 .consumer-actions .consumer-action-save { border-color: #d5f9ae66; color: #dcffb4; background: linear-gradient(130deg, #b8e87932, #b8e87912); box-shadow: var(--consumer-shadow); }
 .consumer-bottom-nav { position: fixed; z-index: 20; bottom: max(18px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; width: min(calc(100% - 40px), 360px); padding: 7px; border: 1px solid #ffffff30; border-radius: 20px; background: var(--consumer-glass); backdrop-filter: blur(24px) saturate(130%); box-shadow: var(--consumer-shadow); }
 .consumer-bottom-nav button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 58px; border: 0; border-radius: 14px; color: var(--consumer-secondary); background: transparent; }
@@ -84,7 +84,7 @@
 .consumer-sheet { width: min(100%, 600px); max-height: 88dvh; margin-inline: auto; overflow: auto; overscroll-behavior: contain; padding: 0 24px max(24px, env(safe-area-inset-bottom)); border: 1px solid #ffffff30; border-bottom: 0; border-radius: 16px 16px 0 0; background: #14212d99; backdrop-filter: blur(28px) saturate(145%); box-shadow: 0 -12px 48px #0003; }
 .consumer-sheet-handle { display: none; }
 .consumer-sheet > header { position: sticky; z-index: 1; top: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 0 14px; background: #17243180; backdrop-filter: blur(20px); }
-.consumer-sheet > header h2 { font-size: 20px; font-weight: 550; }
+.consumer-sheet > header h2 { min-width: 0; overflow-wrap: anywhere; font-size: 20px; font-weight: 550; }
 .consumer-sheet > header button { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--consumer-line); border-radius: 14px; background: #ffffff08; color: var(--consumer-text); }
 .consumer-sheet > header svg { width: 19px; height: 19px; }
 .consumer-filter-content fieldset { min-width: 0; margin: 14px 0 24px; padding: 0; border: 0; }
@@ -797,6 +797,9 @@
 .consumer-brand-lockup { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
 .consumer-creator { color: #a9b5bc; font-size: 12px; line-height: 1.5; text-decoration: none; padding: 3px 0; letter-spacing: .02em; }
 .consumer-creator:hover { color: #c4eb85; text-decoration: underline; text-underline-offset: 3px; }
+.consumer-creator-footer { display: none; }
+.consumer-sheet > header .consumer-return-button { display: inline-flex; align-items: center; gap: 5px; width: auto; min-width: 88px; padding: 10px 14px; color: #f0faff; background: #203849ed; border-color: #a4d9f580; }
+.consumer-feed-retry { margin: 16px auto 0; min-height: 44px; padding: 10px 18px; border: 1px solid #a4d9f580; border-radius: 14px; color: #f0faff; background: #203849ed; }
 .consumer-creator:focus-visible { outline: 2px solid #c4eb85; outline-offset: 3px; border-radius: 3px; }
 .consumer-share-tools { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; min-width: 0; }
 .consumer-hidden-manager { display: grid; gap: 20px; min-width: 0; }

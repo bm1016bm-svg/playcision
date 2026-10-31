@@ -19,6 +19,14 @@ export function isLocale(value: string): value is Locale { return LANGUAGES.some
 
 // Columns follow LANGUAGES, excluding the source Traditional Chinese column.
 export const MESSAGES: Record<string, readonly string[]> = {
+  "已瀏覽": ["Viewed", "已浏览", "閲覧済み", "살펴본 게임", "Angesehen", "Vus", "Vistos", "Vistos", "Visti", "Просмотрено", "ดูแล้ว", "Đã xem"],
+  "上一款": ["Back", "上一款", "戻る", "이전", "Zurück", "Retour", "Atrás", "Voltar", "Indietro", "Назад", "ย้อนกลับ", "Quay lại"],
+  "返回": ["Back", "返回", "戻る", "돌아가기", "Zurück", "Retour", "Volver", "Voltar", "Indietro", "Назад", "ย้อนกลับ", "Quay lại"],
+  "重試載入": ["Retry loading", "重试加载", "再読み込み", "다시 불러오기", "Erneut laden", "Réessayer", "Reintentar", "Tentar novamente", "Riprova", "Повторить", "ลองโหลดอีกครั้ง", "Tải lại"],
+  "繼續尋找遊戲": ["Keep exploring", "继续寻找游戏", "ゲームを探し続ける", "게임 계속 찾기", "Weiter entdecken", "Continuer à explorer", "Seguir explorando", "Continuar explorando", "Continua a esplorare", "Продолжить поиск", "ค้นหาเกมต่อ", "Tiếp tục khám phá"],
+  "目前已看完這個來源": ["You've explored this source", "目前已看完这个来源", "このソースをすべて閲覧しました", "이 목록을 모두 살펴봤어요", "Diese Quelle wurde durchgesehen", "Cette source a été parcourue", "Has explorado esta fuente", "Você explorou esta fonte", "Hai esplorato questa fonte", "Этот источник просмотрен", "ดูรายการนี้ครบแล้ว", "Bạn đã xem hết nguồn này"],
+  "探索新品": ["Explore new releases", "探索新品", "新作を探す", "신작 살펴보기", "Neuheiten entdecken", "Explorer les nouveautés", "Explorar novedades", "Explorar lançamentos", "Esplora le novità", "Смотреть новинки", "สำรวจเกมใหม่", "Khám phá trò chơi mới"],
+  "探索折扣": ["Explore deals", "探索折扣", "セールを探す", "할인 살펴보기", "Angebote entdecken", "Explorer les promotions", "Explorar ofertas", "Explorar ofertas", "Esplora le offerte", "Смотреть скидки", "สำรวจส่วนลด", "Khám phá ưu đãi"],
   "探索": ["Explore", "探索", "探索", "탐색", "Entdecken", "Explorer", "Explorar", "Explorar", "Esplora", "Обзор", "สำรวจ", "Khám phá"],
   "推薦": ["Recommended", "推荐", "おすすめ", "추천", "Empfehlungen", "Recommandations", "Recomendados", "Recomendados", "Consigliati", "Рекомендации", "แนะนำ", "Đề xuất"],
   "收藏": ["Saved", "收藏", "お気に入り", "저장", "Merkliste", "Favoris", "Favoritos", "Favoritos", "Preferiti", "Избранное", "บันทึก", "Đã lưu"],

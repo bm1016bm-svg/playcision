@@ -1,4 +1,6 @@
 import { createDiscoveryCache } from './discovery-cache';
+import { createDiscoveryFeed, DiscoveryLoadError } from './discovery-feed';
+import { retryAfterMilliseconds } from '../../http/safety';
 import { SupportPanel } from './SupportPanel';
 import { AI_FILTER_KEY, readAiPreference } from './ai-filter';
 import { useAiFilter } from './useAiFilter';
@@ -55,7 +57,7 @@ import {
   useTransform,
   type PanInfo,
 } from 'motion/react';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { buildRollPool, uniqueGames, compactLabels, formatGamePrice, safeStoreUrl } from '../deck';
 import type { Game, UiPayload } from '../types';
 import './consumer-preview.css';
@@ -65,7 +67,7 @@ import { AmbientBackground } from './AmbientBackground';
 import { genreLabel } from './genre-labels';
 import { Synopsis, usePresentation } from './presentation';
 import { ReviewStatsRows, useReviewData, reviewLanguageLabel, type ReviewList } from './reviews';
-import { preloadArtwork, useArtwork, warmArtwork } from './artwork';
+import { preloadArtwork, useArtwork } from './artwork';
 import { preloadWindow } from './artwork-cache';
 import { LIBRARY_KEY, parseLibrary, readHidden, hideGame, restoreHiddenGames } from './browser-library';
 
@@ -134,7 +136,7 @@ function ConsumerSheet({ title, onClose, children, reviews = false, fullscreen =
     <motion.div className={`consumer-sheet-scrim${reviews ? " consumer-reviews-scrim" : ""}${fullscreen ? " consumer-filter-scrim" : ""}${guide ? " consumer-guide-scrim" : ""}${glass ? " consumer-support-scrim" : ""}`} role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
       <motion.section ref={sheetRef} inert={inactive} className={`consumer-sheet${reviews ? " consumer-reviews-sheet" : ""}${fullscreen ? " consumer-filter-sheet" : ""}${glass ? " consumer-support-sheet" : ""}`} role="dialog" aria-modal="true" aria-label={title} initial={{ y: reduceMotion ? 0 : reviews || fullscreen || glass ? 16 : '100%' }} animate={{ y: 0 }} exit={{ y: reduceMotion ? 0 : reviews || fullscreen || glass ? 16 : '100%' }} transition={{ duration: reduceMotion ? 0 : .26, ease: [0.22, 1, 0.36, 1] }}>
         <div className="consumer-sheet-handle" aria-hidden="true" />
-        <header><h2>{title}</h2>{onHelp && <button type="button" onClick={onHelp} aria-label="重看使用教學" className="consumer-guide-help"><Question aria-hidden="true" /></button>}<button ref={closeRef} type="button" onClick={onClose} aria-label={`${t('關閉')} ${title}`}><X aria-hidden="true" /></button></header>
+        <header><h2>{title}</h2>{onHelp && <button type="button" onClick={onHelp} aria-label="重看使用教學" className="consumer-guide-help"><Question aria-hidden="true" /></button>}<button ref={closeRef} type="button" onClick={onClose} className={reviews ? 'consumer-return-button' : undefined} aria-label={`${t('關閉')} ${title}`}>{reviews ? <><CaretLeft aria-hidden="true" /><span>{t('返回')}</span></> : <X aria-hidden="true" />}</button></header>
         {children}
       </motion.section>
     </motion.div>
@@ -470,7 +472,7 @@ function RecommendedView({ sections, saved, language, onToggle, excluded, exclud
 const discoveryPages = createDiscoveryCache(async (url: string, signal: AbortSignal) => {
   const response = await fetch(url, { signal });
   const result = await response.json() as { games: Game[]; nextOffset: number; hasMore: boolean; error?: string };
-  if (!response.ok || !Array.isArray(result.games) || !Number.isInteger(result.nextOffset) || typeof result.hasMore !== 'boolean') throw new Error(result.error || '無法取得遊戲');
+  if (!response.ok || !Array.isArray(result.games) || !Number.isInteger(result.nextOffset) || typeof result.hasMore !== 'boolean') throw new DiscoveryLoadError(result.error || '無法取得遊戲', retryAfterMilliseconds(response.headers.get('retry-after')));
   return result;
 });
 
@@ -539,6 +541,9 @@ export function ConsumerPreview({ payload, loading, error, onRetry }: { payload:
   };
   useEffect(() => { if (!showGuide) window.scrollTo({ top: 0, behavior: 'instant' }); }, [activeTab]);
   const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
+  const dismissedRef = useRef(dismissed);
+  dismissedRef.current = dismissed;
+  const discoverMainRef = useRef<HTMLDivElement>(null);
   const [initialLibrary] = useState(() => { try { return { games: parseLibrary(localStorage.getItem(LIBRARY_KEY)), error: '' }; } catch { return { games: [] as Game[], error: '無法讀取這個瀏覽器的收藏。原資料未刪除，請先匯出備份。' }; } });
   const [saved, setSaved] = useState<Game[]>(initialLibrary.games);
   const [storageError, setStorageError] = useState(initialLibrary.error);
@@ -564,33 +569,27 @@ export function ConsumerPreview({ payload, loading, error, onRetry }: { payload:
   useEffect(() => { if (!notice) return; const timer = window.setTimeout(() => setNotice(''), 4500); return () => window.clearTimeout(timer); }, [notice]);
   const [blocked, setBlocked] = useState<Set<string>>(() => { try { return new Set(Object.keys(readHidden(localStorage))); } catch { return new Set(); } });
   const [source, setSource] = useState<Source>('popular');
-  const [searchGames, setSearchGames] = useState<Game[] | null>(null);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [searchError, setSearchError] = useState('');
-  const [searchOffset, setSearchOffset] = useState(0);
-  const [searchMore, setSearchMore] = useState(false);
   const [searchRevision, setSearchRevision] = useState(0);
   const queryKey = JSON.stringify([source, filters.platform, filters.price, filters.genre, filters.players, filters.earlyAccess]);
-  useEffect(() => { setSearchOffset(0); setSearchGames(null); }, [queryKey]);
+  const searchFeed = useMemo(() => createDiscoveryFeed<Game>({
+    seen: id => dismissedRef.current.has(id),
+    load: (offset, signal) => {
+      const params = new URLSearchParams({ source, platform: filters.platform, price: filters.price, genre: filters.genre, players: filters.players, earlyAccess: filters.earlyAccess, offset: String(offset) });
+      return discoveryPages(`/api/discovery?${params}`, locale, AbortSignal.any([signal, AbortSignal.timeout(45000)]));
+    },
+  }), [queryKey, locale, searchRevision]);
+  const search = useSyncExternalStore(searchFeed.subscribe, searchFeed.getSnapshot);
+  const searchGames = search.games;
+  const searchLoading = search.loading || (!search.pages && !search.error);
+  const searchError = search.error;
+  const searchMore = search.hasMore;
   useEffect(() => {
-    if (!payload) return;
-    const controller = new AbortController();
-    let cancelled = false;
-    setSearchLoading(true); setSearchError(''); setSearchMore(false);
-    const params = new URLSearchParams({ source, platform: filters.platform, price: filters.price, genre: filters.genre, players: filters.players, earlyAccess: filters.earlyAccess, offset: String(searchOffset) });
-    const timeout = window.setTimeout(() => controller.abort(), 45000);
-    void discoveryPages(`/api/discovery?${params}`, locale, controller.signal).then(async result => {
-      if (cancelled) return;
-      await warmArtwork(result.games!, () => cancelled);
-      if (cancelled) return;
-      setSearchGames(current => searchOffset === 0 ? result.games! : uniqueGames([...(current ?? []), ...result.games!]).slice(-150));
-      setSearchMore(!!result.hasMore);
-    }).catch(() => { if (!cancelled) setSearchError('遊戲查詢失敗，請再試一次。'); }).finally(() => {
-      window.clearTimeout(timeout); if (!cancelled) setSearchLoading(false);
-    });
-    return () => { cancelled = true; window.clearTimeout(timeout); controller.abort(); };
-  }, [queryKey, searchOffset, searchRevision, !!payload, locale]);
+    if (!payload || activeTab !== 'discover') return;
+    searchFeed.resume();
+    return searchFeed.pause;
+  }, [searchFeed, !!payload, activeTab]);
   const [history, setHistory] = useState<{ game: Game; savedBefore: boolean; decision: Decision }[]>([]);
+  useEffect(() => { setHistory([]); lastDecision.current = null; }, [queryKey]);
   const busyRef = useRef(false);
   const reduceMotion = useReducedMotion();
   const persistPreference = async (action: 'skip' | 'exclude') => {
@@ -611,6 +610,8 @@ export function ConsumerPreview({ payload, loading, error, onRetry }: { payload:
   const undo = () => {
     const last = history.at(-1);
     if (!last) return;
+    searchFeed.restore(last.game);
+    discoverMainRef.current?.scrollTo({ top: 0, behavior: 'instant' });
     setDismissed((current) => { const next = new Set(current); next.delete(last.game.id); return next; });
     if (last.decision === 'save' && !last.savedBefore) setSaved((current) => current.filter((game) => game.id !== last.game.id));
     lastDecision.current = null;
@@ -623,15 +624,13 @@ export function ConsumerPreview({ payload, loading, error, onRetry }: { payload:
   const filteredPool = useMemo(() => (remoteSelected ? searchGames ?? [] : payload?.popular ?? []).filter((game) => !blocked.has(game.id) && !payload?.blockedAppIds?.includes(game.id) && gameMatchesFilters(game, remoteSelected && !source.startsWith('event:') ? { ...filters, genre: 'all', players: 'all', earlyAccess: filters.earlyAccess === 'only' ? 'all' : filters.earlyAccess } : filters)), [filters, blocked, source, payload, searchGames, remoteSelected]);
   const ai = useAiFilter(filteredPool.filter(game => !dismissed.has(game.id)), filters.ai === 'exclude', activeTab === 'discover');
   const available = ai.games;
-  const progressTotal = filters.ai === 'exclude' ? available.length + filteredPool.filter(game => dismissed.has(game.id)).length : filteredPool.length;
   const activeGame = available[0];
   const nextGame = available[1];
   useEffect(() => {
-    if (activeTab === 'discover' && !ai.pending && searchGames !== null && available.length <= 18 && searchMore && !searchLoading && !searchError) {
-      setSearchMore(false);
-      setSearchOffset(value => value + 50);
+    if (activeTab === 'discover' && available.length + ai.unchecked <= 24 && searchMore && !searchLoading && !searchError) {
+      searchFeed.prefetch();
     }
-  }, [activeTab, ai.pending, available.length, searchGames, searchMore, searchLoading, searchError]);
+  }, [activeTab, ai.unchecked, available.length, searchGames, searchMore, searchLoading, searchError, searchFeed]);
   const upcoming = available.slice(0, 24);
   const upcomingKey = JSON.stringify(upcoming.map(game => [game.id, game.imageUrl]));
   useEffect(() => {
@@ -645,6 +644,8 @@ export function ConsumerPreview({ payload, loading, error, onRetry }: { payload:
   const decide = (decision: Decision) => {
     if (!activeGame || lastDecision.current === activeGame.id) return;
     lastDecision.current = activeGame.id;
+    searchFeed.allowPrefetch();
+    discoverMainRef.current?.scrollTo({ top: 0, behavior: 'instant' });
     setHistory((current) => [...current, { game: activeGame, decision, savedBefore: saved.some((game) => game.id === activeGame.id) }].slice(-50));
     setExitDirection(decision);
     if (decision === 'save') setSaved((current) => current.some((game) => game.id === activeGame.id) ? current : [...current, activeGame]);
@@ -670,7 +671,8 @@ export function ConsumerPreview({ payload, loading, error, onRetry }: { payload:
   if (!payload) return null;
 
   const toggleSaved = (game: Game) => setSaved((current) => current.some((item) => item.id === game.id) ? current.filter((item) => item.id !== game.id) : [...current, game]);
-  const topbar = <div className="consumer-topbar"><div className="consumer-brand-lockup"><a href="/" className="consumer-brand" aria-label="Playcision 首頁"><img className="consumer-wordmark" src="/brand/wordmark.png" alt="Playcision" width="770" height="170" draggable={false} /></a><div className="consumer-creator-actions"><a className="consumer-creator" href="https://github.com/bm1016bm-svg" target="_blank" rel="noopener noreferrer" aria-label="作者 bm1016bm-svg 的 GitHub">by @bm1016bm-svg</a><button className="consumer-support-trigger" type="button" onClick={() => setSupportView('coffee')}><Coffee aria-hidden="true" />請我喝咖啡</button><button className="consumer-support-trigger" type="button" onClick={() => setSupportView('free')}><Heart aria-hidden="true" />免費支持</button></div></div><div className="consumer-topbar-tools"><button className="consumer-language-trigger" type="button" onClick={() => setShowLanguages(true)} aria-label={t("語言")}><Globe aria-hidden="true" /><span>{LANGUAGES.find(item => item.code === locale)?.name}</span></button><button data-guide="filter-entry" className={`consumer-icon-button consumer-filter-trigger${hasFilters ? ' has-filters' : ''}`} onClick={() => setShowFilters(true)} aria-label={t("篩選遊戲")}><FunnelSimple aria-hidden="true" />{hasFilters && <i />}</button></div></div>;
+  const creatorActions = <div className="consumer-creator-actions"><a className="consumer-creator" href="https://github.com/bm1016bm-svg" target="_blank" rel="noopener noreferrer" aria-label="作者 bm1016bm-svg 的 GitHub">by @bm1016bm-svg</a><button className="consumer-support-trigger" type="button" onClick={() => setSupportView('coffee')}><Coffee aria-hidden="true" />請我喝咖啡</button><button className="consumer-support-trigger" type="button" onClick={() => setSupportView('free')}><Heart aria-hidden="true" />免費支持</button></div>;
+  const topbar = <div className="consumer-topbar"><div className="consumer-brand-lockup"><a href="/" className="consumer-brand" aria-label="Playcision 首頁"><img className="consumer-wordmark" src="/brand/wordmark.png" alt="Playcision" width="770" height="170" draggable={false} /></a>{creatorActions}</div><div className="consumer-topbar-tools"><button className="consumer-language-trigger" type="button" onClick={() => setShowLanguages(true)} aria-label={t("語言")}><Globe aria-hidden="true" /><span>{LANGUAGES.find(item => item.code === locale)?.name}</span></button><button data-guide="filter-entry" className={`consumer-icon-button consumer-filter-trigger${hasFilters ? ' has-filters' : ''}`} onClick={() => setShowFilters(true)} aria-label={t("篩選遊戲")}><FunnelSimple aria-hidden="true" />{hasFilters && <i />}</button></div></div>;
 
   return (
     <main className="consumer-stage" id="main-content" tabIndex={-1}>
@@ -680,12 +682,9 @@ export function ConsumerPreview({ payload, loading, error, onRetry }: { payload:
         {storageError && <p role="alert" className="consumer-warning">{storageError}</p>}
         {activeTab !== 'recommended' && topbar}
         {activeTab === 'discover' && <>
-          <div className="consumer-discover-main">
+          <div ref={discoverMainRef} className="consumer-discover-main">
             <div className="consumer-deck-progress">
-              <div className="consumer-deck-caption" role="status"><span>{t("該輪次品類剩餘")}</span><strong>{available.length}</strong><span>{t("款")}</span></div>
-              <div className="consumer-progress-track" role="progressbar" aria-label="本輪瀏覽進度" aria-valuemin={0} aria-valuemax={progressTotal || 1} aria-valuenow={progressTotal - available.length} aria-valuetext={`已瀏覽 ${progressTotal - available.length} / ${progressTotal} 款`}>
-                <span style={{ width: `${progressTotal ? (progressTotal - available.length) / progressTotal * 100 : 0}%` }} />
-              </div>
+              <div className="consumer-deck-caption" role="status"><span>{t("已瀏覽")}</span><strong>{dismissed.size}</strong><span>{t("款")}</span></div>
             </div>
             {source === 'popular' && payload.popularError && <p className="consumer-warning" role="alert">熱門暢銷載入失敗，請在篩選中重新整理，或切換新品／折扣。</p>}
             {error && <p className="consumer-warning" role="alert">更新失敗，保留目前資料：{error}</p>}
@@ -695,10 +694,11 @@ export function ConsumerPreview({ payload, loading, error, onRetry }: { payload:
                 {activeGame && <ConsumerGameCard key={activeGame.id} game={activeGame} language={locale} onDecision={decide} onDetails={() => { setFailure(''); setDetails(activeGame); }} />}
               </AnimatePresence>
               {!activeGame && (searchLoading || ai.pending) && <div className="consumer-pool-loading"><BrandIntro compact /></div>}
-              {!activeGame && !searchLoading && !ai.pending && <div className="consumer-empty-view consumer-empty-view--pool" role="status"><SlidersHorizontal aria-hidden="true" /><h2>{searchLoading ? '正在尋找遊戲…' : searchError || (searchMore ? '繼續看看下一批遊戲' : t("沒有符合條件的遊戲"))}</h2>{!searchLoading && (searchError ? <button type="button" onClick={() => setSearchRevision(value => value + 1)}>重新查詢</button> : searchMore ? <button type="button" onClick={() => setSearchOffset(value => value + 50)}>載入更多遊戲</button> : <button type="button" onClick={() => { setSource('popular'); setFilters(DEFAULT_FILTERS); setDismissed(new Set()); setHistory([]); lastDecision.current = null; }}>{t("清除篩選並重設")}</button>)}</div>}
+              {!activeGame && !searchLoading && !ai.pending && <div className="consumer-empty-view consumer-empty-view--pool" role="status"><SlidersHorizontal aria-hidden="true" /><h2>{searchError || (searchMore ? t('繼續尋找遊戲') : hasFilters ? t('沒有符合條件的遊戲') : t('目前已看完這個來源'))}</h2>{searchError || searchMore ? <button type="button" onClick={() => void searchFeed.retry()}>{t(searchError ? '重試載入' : '繼續尋找遊戲')}</button> : hasFilters ? <button type="button" onClick={() => { setSource('popular'); setFilters(DEFAULT_FILTERS); setSearchRevision(value => value + 1); }}>{t('清除篩選並重設')}</button> : <button type="button" onClick={() => setSource('discover')}>{t('探索新品')}</button>}</div>}
             </div>
+            {activeGame && searchError && <button className="consumer-feed-retry" type="button" onClick={() => void searchFeed.retry()}>{t('重試載入')}</button>}
           </div>
-          <div className="consumer-actions" data-guide="discover-actions" aria-label="遊戲操作"><button className="consumer-undo" aria-label={t("復原上一個決定")} onClick={undo} disabled={!history.length}><ArrowCounterClockwise aria-hidden="true" /></button>
+          <div className="consumer-actions" data-guide="discover-actions" aria-label="遊戲操作"><button className="consumer-undo" aria-label={t("復原上一個決定")} title={t('復原上一個決定')} onClick={undo} disabled={!history.length}><ArrowCounterClockwise aria-hidden="true" /><span>{t('上一款')}</span></button>
             <button type="button" className="consumer-action-skip" aria-keyshortcuts="ArrowLeft" title={`${t('略過')} (←)`} onClick={() => decide('skip')} disabled={!activeGame}><X weight="bold" aria-hidden="true" /><span>{t("略過")}</span></button>
             <button type="button" className="consumer-action-save" aria-keyshortcuts="ArrowRight" title={`${t('收藏')} (→)`} onClick={() => decide('save')} disabled={!activeGame}><Heart weight="fill" aria-hidden="true" /><span>{t("加入收藏")}</span></button>
 
@@ -709,11 +709,12 @@ export function ConsumerPreview({ payload, loading, error, onRetry }: { payload:
         {activeTab === 'library' && <LibraryView initialRoom={initialRoom} games={saved} suggestions={uniqueGames([...(payload.popular ?? []), ...payload.digest.discover, ...payload.digest.deals, ...(searchGames ?? [])])} onExplore={() => setActiveTab('discover')} onRestore={(next, ids) => { setBlocked(new Set(Object.keys(next))); setDismissed(current => new Set([...current].filter(id => !ids.includes(id)))); }} />}
         <ConsumerBottomNav active={activeTab} savedCount={saved.length} onChange={setActiveTab} />
         </div>
+        <footer className="consumer-creator-footer" inert={showGuide || showFilters || showLanguages || !!supportView || !!details}>{creatorActions}</footer>
         {notice && <div className="consumer-toast" role="status"><Check aria-hidden="true" />{notice}</div>}
         <AnimatePresence>{showGuide && <PageGuide key={activeTab} page={activeTab} onClose={dismissGuide} />}</AnimatePresence>
         <AnimatePresence>{supportView && <ConsumerSheet glass title={supportView === 'coffee' ? '請我喝咖啡' : '免費支持'} onClose={() => setSupportView(null)}><SupportPanel freeOnly={supportView === 'free'} /></ConsumerSheet>}</AnimatePresence>
         <AnimatePresence>{showLanguages && <ConsumerSheet title={t("語言")} onClose={() => setShowLanguages(false)}><div className="consumer-language-options">{LANGUAGES.map(item => <button type="button" lang={item.code} key={item.code} aria-pressed={locale === item.code} onClick={() => { if (isLocale(item.code)) setLocale(item.code); setNotice(''); setShowLanguages(false); }}><span>{item.name}</span>{locale === item.code && <Check aria-hidden="true" />}</button>)}</div></ConsumerSheet>}</AnimatePresence>
-        <AnimatePresence>{showFilters && <FilterSheet filters={filters} source={source} genres={genres} loading={loading} onRefresh={onRetry} onChange={(next, nextSource) => { setFilters(next); setSource(nextSource); setSearchOffset(0); setSearchGames(null); setSearchRevision(value => value + 1); setDismissed(new Set()); setHistory([]); lastDecision.current = null; setActiveTab('discover'); }} onClose={() => setShowFilters(false)} />}</AnimatePresence>
+        <AnimatePresence>{showFilters && <FilterSheet filters={filters} source={source} genres={genres} loading={loading} onRefresh={() => { onRetry(); setSearchRevision(value => value + 1); }} onChange={(next, nextSource) => { setFilters(next); setSource(nextSource); setSearchRevision(value => value + 1); setHistory([]); lastDecision.current = null; setActiveTab('discover'); }} onClose={() => setShowFilters(false)} />}</AnimatePresence>
         <AnimatePresence>{details && <ReviewOverlay key={details.id} game={details} saved={saved.some((game) => game.id === details.id)} onToggleSaved={() => toggleSaved(details)} busy={busy} failure={failure} onPreference={(action) => void persistPreference(action)} onClose={() => setDetails(null)} />}</AnimatePresence>
       </section>
     </main>

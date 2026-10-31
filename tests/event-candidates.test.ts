@@ -41,5 +41,5 @@ it('uses intersecting activity filters, authoritative player categories, macOS a
   expect(gameMatchesFilters(game, { ...filter, genre: 'RPG' })).toBe(false);
   const query = { source: 'event:123', genre: 'all', platform: 'all', players: 'all', price: 'all', earlyAccess: 'all', offset: 1500 };
   expect(discoveryRequest.safeParse(query).success).toBe(true);
-  expect(discoveryRequest.safeParse({ ...query, source: 'popular' }).success).toBe(false);
+  expect(discoveryRequest.safeParse({ ...query, source: 'popular' }).success).toBe(true);
 });

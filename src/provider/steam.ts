@@ -1,6 +1,6 @@
 import { parseAppReviews, parseRecentReviews, mixReviews, type ReviewStats } from './reviews.js';
 import { boundedResponseText, cancelResponse, retryAfterMilliseconds, RetryBudget, RetryDeadlineError } from '../http/safety.js';
-import type { DiscoveryRequest } from '../ui/discovery.js';
+import { MAX_DISCOVERY_OFFSET, type DiscoveryRequest } from '../ui/discovery.js';
 import type {
   Game,
   GameProvider,
@@ -263,7 +263,7 @@ export class SteamProvider implements GameProvider {
       if (filters.price === 'paid' && (game.price.isFree || !game.price.current || game.price.current.minor <= 0)) return false;
       return true;
     });
-    return { games, nextOffset: filters.offset + 50, hasMore: hasMore && filters.offset < 1000 };
+    return { games, nextOffset: filters.offset + 50, hasMore: hasMore && filters.offset < MAX_DISCOVERY_OFFSET };
   }
 
   async getEventApps(appIds: string[], query: ProviderQuery): Promise<Game[]> {
